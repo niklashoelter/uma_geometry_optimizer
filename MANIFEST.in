@@ -9,3 +9,7 @@ include pyproject.toml
 prune torch-sim
 exclude torch-sim/*
 
+# Exclude build artefacts
+prune **/*.egg-info
+prune src/*.egg-info
+prune src/uma_geometry_optimizer.egg-info

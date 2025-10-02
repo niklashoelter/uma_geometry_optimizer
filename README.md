@@ -75,6 +75,7 @@ All supported parameters live under the `optimization` key. Only these parameter
 {
   "optimization": {
     "batch_optimization_mode": "batch",   // "batch" or "sequential"
+    "batch_optimizer": "fire",            // "fire" (default) or "gradient_descent"
     "max_num_conformers": 50,              // Max number for conformer generation
     "conformer_seed": 42,                  // Seed (if the generator supports it)
 
@@ -92,6 +93,7 @@ All supported parameters live under the `optimization` key. Only these parameter
 - `batch_optimization_mode`: controls the ensemble mode
   - `sequential`: ASE/BFGS per conformer with a shared calculator
   - `batch`: torch-sim batch optimization (accelerated for larger ensembles)
+- `batch_optimizer`: optimizer for batch mode; `fire` (default) or `gradient_descent`
 - `device`: CPU/GPU (CUDA) control. The batch mode respects this setting.
 - Hugging Face token: either set directly or reference a file. Using a file is often safer for local setups.
 

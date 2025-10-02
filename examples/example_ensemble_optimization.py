@@ -153,9 +153,9 @@ if __name__ == "__main__":
     print("=" * 70)
 
     example_ensemble_from_smiles()
-    #example_ensemble_from_multi_xyz()
-    #example_ensemble_from_xyz_directory()
-    #example_ensemble_with_config()
+    example_ensemble_from_multi_xyz()
+    example_ensemble_from_xyz_directory()
+    example_ensemble_with_config()
 
     print("\n" + "=" * 70)
     print("Examples completed! Check the generated ensemble XYZ files.")

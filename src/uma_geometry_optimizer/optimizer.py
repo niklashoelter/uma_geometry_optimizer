@@ -170,24 +170,33 @@ def _optimize_batch(
     import torch
     import torch_sim as torchsim
     from torch_sim.models.fairchem import FairChemModel
+    from torch_sim import optimizers as ts_optimizers
 
     opt_config = config.optimization
-    model_path = Path(opt_config.model_path).joinpath(opt_config.model_name)
-    if not model_path.exists():
-        model_path = None
+    force_cpu = not opt_config.device.lower().__contains__("cuda")
 
-    # Respect requested device: cpu flag means "force CPU" for the model wrapper
-    force_cpu = opt_config.device != "cuda"
-    model = FairChemModel(model=model_path, model_name=opt_config.model_name, cpu=force_cpu, task_name="omol")
+
+    model_path = Path(opt_config.model_path) if opt_config.model_path else None
+    model_name = opt_config.model_name if opt_config.model_path is None else None
+    if model_name is None and model_path is None:
+        print("No model_name or model_path specified in config, defaulting to 'uma-s-1p1' and './models'")
+        model_name = "uma-s-1p1"
+
+    model = FairChemModel(model=model_path, model_name=model_name, cpu=force_cpu, task_name="omol")
 
     # Ensure positions are sequences of tuples for type checkers and ASE
     ase_conformers = [Atoms(symbols=symbols, positions=[tuple(c) for c in coords]) for symbols, coords in conformers]
     state = torchsim.io.atoms_to_state(ase_conformers, device=opt_config.device, dtype=torch.float32)
 
+    # Select optimizer function based on configuration; default to FIRE
+    optimizer_name = getattr(opt_config, 'batch_optimizer', 'fire') or 'fire'
+    optimizer_name = str(optimizer_name).strip().lower()
+    optimizer_fn = ts_optimizers.fire if optimizer_name == 'fire' else ts_optimizers.gradient_descent
+
     final_state = torchsim.optimize(
         system=state,
         model=model,
-        optimizer=torchsim.gradient_descent
+        optimizer=optimizer_fn
     )
 
     final_atoms = final_state.to_atoms()

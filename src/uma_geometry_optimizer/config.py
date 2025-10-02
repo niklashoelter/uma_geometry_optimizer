@@ -22,6 +22,10 @@ class OptimizationConfig:
     batch_optimization_mode: str = "batch"
     """Ensemble optimization mode: 'batch' or 'sequential'. Defaults to 'batch'."""
 
+    # Batch optimizer algorithm for torch-sim batch mode
+    batch_optimizer: str = "fire"
+    """Batch optimizer to use in batch mode: 'fire' (default) or 'gradient_descent'."""
+
     # Conformer generation parameters
     max_num_conformers: int = 50
     """Maximum number of conformers to generate from SMILES (default aligns with config.json)."""
@@ -57,6 +61,7 @@ class OptimizationConfig:
         - Normalizes and validates batch_optimization_mode.
         - Normalizes and validates device string.
         - Validates numeric parameters.
+        - Normalizes and validates batch_optimizer selection.
         """
         # Validate batch mode
         if not isinstance(self.batch_optimization_mode, str):
@@ -65,6 +70,14 @@ class OptimizationConfig:
         if mode not in {"batch", "sequential"}:
             raise ValueError("batch_optimization_mode must be 'batch' or 'sequential'")
         self.batch_optimization_mode = mode
+
+        # Normalize/validate batch optimizer
+        if not isinstance(self.batch_optimizer, str) or not self.batch_optimizer.strip():
+            self.batch_optimizer = "fire"
+        opt = self.batch_optimizer.strip().lower()
+        if opt not in {"fire", "gradient_descent"}:
+            raise ValueError("batch_optimizer must be 'fire' or 'gradient_descent'")
+        self.batch_optimizer = opt
 
         # Normalize device
         if not isinstance(self.device, str):
@@ -152,6 +165,10 @@ class Config:
                 dev = str(opt_dict['device']).strip().lower()
                 kwargs['device'] = dev
 
+            # Normalize batch_optimizer if provided
+            if 'batch_optimizer' in opt_dict and isinstance(opt_dict['batch_optimizer'], str):
+                kwargs['batch_optimizer'] = opt_dict['batch_optimizer'].strip().lower()
+
             # Instantiate with validated/synchronized values
             config.optimization = OptimizationConfig(**kwargs)
 
@@ -167,6 +184,7 @@ class Config:
         return {
             'optimization': {
                 'batch_optimization_mode': self.optimization.batch_optimization_mode,
+                'batch_optimizer': self.optimization.batch_optimizer,
                 'max_num_conformers': self.optimization.max_num_conformers,
                 'conformer_seed': self.optimization.conformer_seed,
                 'device': self.optimization.device,
