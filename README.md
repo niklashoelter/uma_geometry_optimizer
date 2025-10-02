@@ -66,7 +66,7 @@ symbols, opt_coords, energy = uma_geom_optimizer.optimize_geometry(symbols, coor
 confs = uma_geom_optimizer.smiles_to_ensemble("c1ccccc1", 10)
 results = uma_geom_optimizer.optimize_conformer_ensemble(confs)  # list of (symbols, coords, energy)
 ```
-
+Blub
 ## Configuration
 
 All supported parameters live under the `optimization` key. Only these parameters are effective in the code; old/removed fields are ignored.
