@@ -1,0 +1,11 @@
+# Include essential project files
+include README.md
+include LICENSE
+include pyproject.toml
+
+# Package discovery handled by setuptools (src layout)
+
+# Explicitly exclude local external libraries and large folders from sdist
+prune torch-sim
+exclude torch-sim/*
+
