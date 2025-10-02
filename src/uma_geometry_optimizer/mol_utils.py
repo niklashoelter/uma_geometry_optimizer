@@ -5,6 +5,50 @@ structures and generating conformer ensembles using the morfeus library with RDK
 """
 
 from typing import List, Tuple
+from numbers import Integral
+
+
+def _to_symbol_list(elements) -> List[str]:
+    """Convert a sequence of element descriptors to a list of atomic symbols.
+
+    Accepts element symbols as strings or atomic numbers (ints); converts to
+    a list of string symbols. Also supports numpy arrays transparently.
+    """
+    # Lazy import to avoid import-time dependency failures
+    from ase.data import chemical_symbols
+
+    try:
+        # Convert numpy arrays to Python lists
+        if hasattr(elements, "tolist"):
+            elements = elements.tolist()
+    except Exception:
+        pass
+
+    symbols: List[str] = []
+    for e in elements:
+        if isinstance(e, str):
+            symbols.append(e)
+        elif isinstance(e, Integral):
+            # Map atomic number to symbol; guard range
+            try:
+                symbols.append(chemical_symbols[int(e)])
+            except Exception:
+                raise ValueError(f"Invalid atomic number: {e}")
+        else:
+            # Fallback: try string conversion
+            symbols.append(str(e))
+    return symbols
+
+
+def _to_coord_list(coords) -> List[List[float]]:
+    """Convert coordinates to a nested Python list of floats."""
+    try:
+        if hasattr(coords, "tolist"):
+            return coords.tolist()
+    except Exception:
+        pass
+    # Ensure nested list of lists
+    return [[float(c) for c in row] for row in coords]
 
 
 def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[Tuple[List[str], List[List[float]]]]:
@@ -58,9 +102,9 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[T
             if i >= max_num_confs:
                 break
 
-            # Get atomic elements and coordinates
-            atoms = conformer.elements
-            coordinates = conformer.coordinates
+            # morfeus may return atomic numbers as numpy arrays; normalize
+            atoms = _to_symbol_list(getattr(conformer, "elements", []))
+            coordinates = _to_coord_list(getattr(conformer, "coordinates", []))
 
             # Validate data consistency
             if len(atoms) != len(coordinates):

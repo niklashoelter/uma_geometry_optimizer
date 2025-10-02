@@ -31,7 +31,10 @@ from .io_handler import (
     smiles_to_xyz, smiles_to_ensemble,
     save_xyz_file, save_multi_xyz
 )
-from .optimizer import optimize_geometry, optimize_conformer_ensemble
+
+# Note: Optimizer functions are imported locally inside the command handlers
+# so that `--help` works without heavy dependencies being installed.
+
 
 def setup_parser() -> argparse.ArgumentParser:
     """Set up the command line argument parser.
@@ -239,6 +242,8 @@ def cmd_optimize(args, config: Config):
     Raises:
         SystemExit: If optimization fails or input cannot be processed.
     """
+    from .optimizer import optimize_geometry
+
     try:
         if args.smiles:
             if config.optimization.verbose:
@@ -279,6 +284,8 @@ def cmd_ensemble(args, config: Config):
     Raises:
         SystemExit: If optimization fails or input cannot be processed.
     """
+    from .optimizer import optimize_conformer_ensemble
+
     try:
         conformers: List[Tuple[List[str], List[List[float]]]] = []
         if args.smiles:
@@ -288,15 +295,12 @@ def cmd_ensemble(args, config: Config):
                 print(f"Generating {num_conf} conformers for SMILES: {args.smiles}")
 
             conformers = cast(List[Tuple[List[str], List[List[float]]]], smiles_to_ensemble(args.smiles, num_conformers=num_conf))
-
-
         elif args.multi_xyz:
             # Read conformers from multi-structure XYZ file
             if config.optimization.verbose:
                 print(f"Reading conformers from multi-XYZ file: {args.multi_xyz}")
             conformers = read_multi_xyz(args.multi_xyz)
             smiles = "unknown"
-
         elif args.xyz_dir:
             # Read conformers from directory of XYZ files
             if config.optimization.verbose:
