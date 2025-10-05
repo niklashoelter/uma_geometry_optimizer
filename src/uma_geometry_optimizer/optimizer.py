@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional, TYPE_CHECKING
 
 import numpy as np
+import torch_sim
 from ase import Atoms
 from ase.optimize import BFGS
 
@@ -170,34 +171,60 @@ def _optimize_batch(
     import torch
     import torch_sim as torchsim
     from torch_sim.models.fairchem import FairChemModel
-    from torch_sim import optimizers as ts_optimizers
+    from torch_sim.autobatching import calculate_memory_scaler, estimate_max_memory_scaler
+    from torch_sim.optimizers import gradient_descent, fire
 
     opt_config = config.optimization
     force_cpu = not opt_config.device.lower().__contains__("cuda")
-
 
     model_path = Path(opt_config.model_path) if opt_config.model_path else None
     model_name = opt_config.model_name if opt_config.model_path is None else None
     if model_name is None and model_path is None:
         print("No model_name or model_path specified in config, defaulting to 'uma-s-1p1' and './models'")
         model_name = "uma-s-1p1"
-
     model = FairChemModel(model=model_path, model_name=model_name, cpu=force_cpu, task_name="omol")
 
     # Ensure positions are sequences of tuples for type checkers and ASE
     ase_conformers = [Atoms(symbols=symbols, positions=[tuple(c) for c in coords]) for symbols, coords in conformers]
-    state = torchsim.io.atoms_to_state(ase_conformers, device=opt_config.device, dtype=torch.float32)
+    batched_state = torchsim.io.atoms_to_state(ase_conformers, device=opt_config.device, dtype=torch.float32)
+
+    # Make use of torch sim autobatching
+    state_list = batched_state.split()
+    batcher = torch_sim.InFlightAutoBatcher(
+        model = model,
+        memory_scales_with="n_atoms",
+    )
+    batcher.load_states(batched_state)
+    convergence_fn = torch_sim.generate_energy_convergence_fn(1e-10)
+
+    all_converged_states, convergence_tensor = []
+    while (result := batcher.next_batch(batched_state, convergence_tensor))[0] is not None:
+        batched_state, converged_state = result
+        all_converged_states.append(converged_state)
+
+        for _ in range(5):
+            batched_state = torch_sim.optimize(batched_state, model, max_steps=1)
+
+        convergence_tensor = convergence_fn(batched_state, None)
+
+    else:
+        all_converged_states.extend(result[1])
+
+    final_state = batcher.restore_original_order(all_converged_states)
+    assert len(final_state) == len(conformers)
+    assert batched_state.n_systems == 0
 
     # Select optimizer function based on configuration; default to FIRE
-    optimizer_name = getattr(opt_config, 'batch_optimizer', 'fire') or 'fire'
+    """optimizer_name = getattr(opt_config, 'batch_optimizer', 'fire') or 'fire'
     optimizer_name = str(optimizer_name).strip().lower()
-    optimizer_fn = ts_optimizers.fire if optimizer_name == 'fire' else ts_optimizers.gradient_descent
+    optimizer_fn = fire if optimizer_name == 'fire' else gradient_descent
 
     final_state = torchsim.optimize(
-        system=state,
+        system=batched_state,
         model=model,
         optimizer=optimizer_fn
     )
+    """
 
     final_atoms = final_state.to_atoms()
     energy_results = model(final_state)
