@@ -36,7 +36,7 @@ def example_optimize_from_smiles():
         # Method 2: Step-by-step approach
         print("\n--- Alternative step-by-step approach ---")
         symbols2, coords2 = uma_geom_optimizer.smiles_to_xyz(smiles)
-        opt_symbols, opt_coords, energy2 = uma_geom_optimizer.optimize_geometry(symbols2, coords2)
+        opt_symbols, opt_coords, energy2 = uma_geom_optimizer.optimize_single_geometry(symbols2, coords2)
 
         print(f"✓ Step-by-step optimization successful!")
         print(f"  Final energy: {energy2:.6f} eV")

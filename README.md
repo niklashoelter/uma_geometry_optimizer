@@ -60,7 +60,7 @@ from uma_geometry_optimizer import Config
 
 # Optimize a single geometry
 symbols, coords = uma_geom_optimizer.smiles_to_xyz("CCO")
-symbols, opt_coords, energy = uma_geom_optimizer.optimize_geometry(symbols, coords)
+symbols, opt_coords, energy = uma_geom_optimizer.optimize_single_geometry(symbols, coords)
 
 # Optimize an ensemble from SMILES
 confs = uma_geom_optimizer.smiles_to_ensemble("c1ccccc1", 10)

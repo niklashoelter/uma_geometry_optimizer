@@ -11,9 +11,10 @@ that is actually implemented and tested.
 """
 
 from .io_handler import read_xyz, read_multi_xyz, read_xyz_directory, smiles_to_xyz, smiles_to_ensemble, save_xyz_file, save_multi_xyz
-from .optimizer import optimize_geometry, optimize_conformer_ensemble
+from .optimizer import optimize_single_geometry, optimize_conformer_ensemble
 from .model import load_model
 from .config import Config, OptimizationConfig, default_config, load_config_from_file, save_config_to_file
+from .decorators import time_it
 
 # Convenience functions for common workflows
 def optimize_smiles(smiles: str, output_file: str = None, config: Config = None) -> tuple:
@@ -28,7 +29,7 @@ def optimize_smiles(smiles: str, output_file: str = None, config: Config = None)
         Tuple of (symbols, optimized_coordinates, energy).
     """
     symbols, coords = smiles_to_xyz(smiles)
-    result = optimize_geometry(symbols, coords, config)
+    result = optimize_single_geometry(symbols, coords, config)
 
     if output_file:
         save_xyz_file(result[0], result[1], result[2], output_file, f"Optimized from SMILES: {smiles}")
@@ -47,7 +48,7 @@ def optimize_xyz_file(input_file: str, output_file: str = None, config: Config =
         Tuple of (symbols, optimized_coordinates, energy).
     """
     symbols, coords = read_xyz(input_file)
-    result = optimize_geometry(symbols, coords, config)
+    result = optimize_single_geometry(symbols, coords, config)
 
     if output_file:
         save_xyz_file(result[0], result[1], result[2], output_file, f"Optimized from: {input_file}")
@@ -90,7 +91,7 @@ __all__ = [
     "save_multi_xyz",
 
     # Optimization functions
-    "optimize_geometry",
+    "optimize_single_geometry",
     "optimize_conformer_ensemble",
 
     # Convenience functions
@@ -107,4 +108,7 @@ __all__ = [
     "default_config",
     "load_config_from_file",
     "save_config_to_file",
+
+    # Decorators
+    "time_it",
 ]

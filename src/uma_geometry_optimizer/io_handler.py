@@ -242,9 +242,11 @@ def smiles_to_ensemble(smiles_string: str, num_conformers: int, return_full_xyz_
     Args:
         smiles_string: A valid SMILES string representing the molecular structure.
         num_conformers: The maximum number of conformers to generate.
+        return_full_xyz_str: If True, returns a list of XYZ format strings for each conformer.
 
     Returns:
-        A list of strings, where each string is a conformer in XYZ format.
+        A list of strings, where each string is a conformer in XYZ format,
+        or a list of (atoms, coordinates) tuples if return_full_xyz_str is False.
 
     Raises:
         ValueError: If the SMILES string is invalid, num_conformers is not positive,

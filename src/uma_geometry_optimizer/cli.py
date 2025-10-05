@@ -23,6 +23,12 @@ Examples:
 
 import argparse
 import sys
+import warnings
+
+# Unterdrückt alle UserWarnings und FutureWarnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 from typing import cast, List, Tuple
 
 from .config import Config, load_config_from_file, save_config_to_file
@@ -242,7 +248,7 @@ def cmd_optimize(args, config: Config):
     Raises:
         SystemExit: If optimization fails or input cannot be processed.
     """
-    from .optimizer import optimize_geometry
+    from .optimizer import optimize_single_geometry
 
     try:
         if args.smiles:
@@ -259,7 +265,7 @@ def cmd_optimize(args, config: Config):
         if config.optimization.verbose:
             print(f"Optimizing structure with {len(symbols)} atoms...")
 
-        opt_symbols, opt_coords, energy = optimize_geometry(symbols, coordinates, config)
+        opt_symbols, opt_coords, energy = optimize_single_geometry(symbols, coordinates, config)
         save_xyz_file(opt_symbols, opt_coords, energy, args.output, comment)
 
         if config.optimization.verbose:

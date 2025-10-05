@@ -6,7 +6,7 @@ structures and generating conformer ensembles using the morfeus library with RDK
 
 from typing import List, Tuple
 from numbers import Integral
-
+from .decorators import time_it
 
 def _to_symbol_list(elements) -> List[str]:
     """Convert a sequence of element descriptors to a list of atomic symbols.
@@ -50,7 +50,7 @@ def _to_coord_list(coords) -> List[List[float]]:
     # Ensure nested list of lists
     return [[float(c) for c in row] for row in coords]
 
-
+@time_it
 def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[Tuple[List[str], List[List[float]]]]:
     """Generate multiple conformers from a SMILES string.
 
@@ -69,12 +69,6 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[T
     Raises:
         ValueError: If SMILES string is invalid or conformer generation fails.
         ImportError: If morfeus or RDKit dependencies are not available.
-
-    Example:
-        >>> conformers = smiles_to_conformer_ensemble("CCO", 5)
-        >>> print(f"Generated {len(conformers)} conformers")
-        >>> symbols, coords = conformers[0]  # First (lowest energy) conformer
-        >>> print(f"First conformer has {len(symbols)} atoms")
 
     Note:
         Conformers are sorted by energy (lowest first) and pruned by RMSD
@@ -144,11 +138,6 @@ def smiles_to_structure(smiles: str) -> Tuple[List[str], List[List[float]]]:
     Raises:
         ValueError: If SMILES string is invalid or structure generation fails.
         ImportError: If morfeus or RDKit dependencies are not available.
-
-    Example:
-        >>> symbols, coords = smiles_to_structure("CCO")
-        >>> print(f"Ethanol has {len(symbols)} atoms")
-        >>> print(f"First atom is {symbols[0]} at {coords[0]}")
 
     Note:
         This function is equivalent to calling smiles_to_conformer_ensemble

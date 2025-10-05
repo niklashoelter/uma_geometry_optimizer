@@ -17,34 +17,22 @@ def example_ensemble_from_smiles():
     """Example 1: Generate and optimize conformer ensemble from SMILES."""
     print("=== Example 1: Ensemble optimization from SMILES ===")
 
-    smiles = "CCCCCO"  # Example SMILES
-    num_conformers = 3
+    smiles = "CC([C@@H]1[C@H](C[C@@H](N2C3=C(C=CC=C3C(C)C)C(C)C)[C@H](N(C2=[Pd-](Br)(C#[O+])C4=CC=CC=C4)C5=C(C=CC=C5C(C)C)C(C)C)C1)C(C)C)C"  # Example SMILES
+    num_conformers = 25
     print(f"Generating {num_conformers} conformers for {smiles} and optimizing...")
 
-    try:
-        # Method 1: Using convenience function
-        results = uma_geom_optimizer.optimize_smiles_ensemble(
-            smiles=smiles,
-            num_conformers=num_conformers,
-            output_file="ethanol_ensemble_optimized.xyz"
-        )
+    # Method 1: Using convenience function
+    results = uma_geom_optimizer.optimize_smiles_ensemble(
+        smiles=smiles,
+        num_conformers=num_conformers,
+        output_file="ethanol_ensemble_optimized.xyz"
+    )
 
-        print(f"✓ Ensemble optimization successful!")
-        print(f"  Generated conformers: {len(results)}")
-        for i, (symbols, coords, energy) in enumerate(results):
-            print(f"  Conformer {i+1}: {energy:.6f} eV")
-        print(f"  Output saved to: ethanol_ensemble_optimized.xyz")
-
-        # Method 2: Step-by-step approach
-        print("\n--- Alternative step-by-step approach ---")
-        conformers = uma_geom_optimizer.smiles_to_ensemble(smiles, num_conformers)
-        optimized = uma_geom_optimizer.optimize_conformer_ensemble(conformers)
-
-        print(f"✓ Step-by-step ensemble optimization successful!")
-        print(f"  Optimized conformers: {len(optimized)}")
-
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print(f"✓ Ensemble optimization successful!")
+    print(f"  Generated conformers: {len(results)}")
+    for i, (symbols, coords, energy) in enumerate(results):
+        print(f"  Conformer {i+1}: {energy:.6f} eV")
+    print(f"  Output saved to: ethanol_ensemble_optimized.xyz")
 
 def example_ensemble_from_multi_xyz():
     """Example 2: Optimize conformers from multi-structure XYZ file."""
@@ -153,9 +141,9 @@ if __name__ == "__main__":
     print("=" * 70)
 
     example_ensemble_from_smiles()
-    example_ensemble_from_multi_xyz()
-    example_ensemble_from_xyz_directory()
-    example_ensemble_with_config()
+    #example_ensemble_from_multi_xyz()
+    #example_ensemble_from_xyz_directory()
+    #example_ensemble_with_config()
 
     print("\n" + "=" * 70)
     print("Examples completed! Check the generated ensemble XYZ files.")
