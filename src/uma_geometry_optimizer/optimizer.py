@@ -189,7 +189,6 @@ def _optimize_batch(
     batched_state = torchsim.io.atoms_to_state(ase_conformers, device=opt_config.device, dtype=torch.float32)
 
     # Make use of torch sim autobatching
-    state_list = batched_state.split()
     batcher = torch_sim.InFlightAutoBatcher(
         model = model,
         memory_scales_with="n_atoms",
