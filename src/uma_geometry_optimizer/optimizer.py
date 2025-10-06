@@ -38,6 +38,8 @@ def optimize_single_structure(
 
     symbols = structure.symbols
     coordinates = structure.coordinates
+    charge = structure.charge
+    multiplicity = structure.multiplicity
 
     # Input validation, numpy conversion and checks
     if len(symbols) != len(coordinates):
@@ -59,6 +61,7 @@ def optimize_single_structure(
         # Create ASE Atoms object
         atoms = Atoms(symbols=symbols, positions=coords_array.tolist())
         atoms.calc = calculator
+        atoms.info = {'charge': charge, 'spin': multiplicity}
 
         if opt_config.verbose:
             print(f"Starting geometry optimization for structure with {len(symbols)} atoms")
@@ -97,15 +100,12 @@ def optimize_structure_batch(
     if not structures:
         return []
 
-    # Basic validation: all structures must have same atom count and non-empty
-    first_count = structures[0].n_atoms
+    # Basic validation: all structures must be and non-empty
     for i, s in enumerate(structures):
         if s.n_atoms != len(s.coordinates):
             raise ValueError(f"Structure {i}: symbols/coords length mismatch")
         if s.n_atoms == 0:
             raise ValueError(f"Structure {i}: empty structure")
-        if s.n_atoms != first_count:
-            raise ValueError("All structures must have same number of atoms")
 
     force_cpu = not config.optimization.device.lower().__contains__("cuda")
     print(f"Optimization device: {'CPU' if force_cpu else 'GPU'}")
@@ -196,7 +196,12 @@ def _optimize_batch_structures(
     convergence_fn = torch_sim.generate_energy_convergence_fn(energy_tol=1e-6)
 
     # Ensure positions are sequences of tuples for type checkers and ASE
-    ase_structures = [Atoms(symbols=s.symbols, positions=[tuple(c) for c in s.coordinates]) for s in structures]
+    ase_structures = [
+        Atoms(symbols=s.symbols,
+              positions=[tuple(c) for c in s.coordinates],
+              info={'charge': s.charge, 'spin': s.multiplicity}
+        ) for s in structures
+    ]
     batched_state = torchsim.io.atoms_to_state(ase_structures, device=opt_config.device, dtype=torch.float32)
 
     batcher = InFlightAutoBatcher(
@@ -219,14 +224,12 @@ def _optimize_batch_structures(
 
     results: List[Structure] = []
     for i, atoms in enumerate(final_atoms):
-        symbols = atoms.get_chemical_symbols()
-        coords = atoms.get_positions().tolist()
-        energy = float(final_state.energy[i].item())
-        s = structures[i]
-        s.symbols = symbols
-        s.coordinates = coords
-        s.energy = energy
-        results.append(s)
+        s = Structure(
+            symbols=atoms.get_chemical_symbols(),
+            coordinates=atoms.get_positions().tolist(),
+            energy=float(final_state.energy[i].item()),
+            comment=f"Optimized with model {model_name} in batch mode",
+        )
     return results
 
 

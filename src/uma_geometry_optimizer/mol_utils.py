@@ -102,9 +102,9 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[S
 
             # Validate data consistency
             if len(atoms) != len(coordinates):
-                continue  # Skip invalid conformers
+                continue  # Skip invalid structures
 
-            structures.append(Structure(symbols=atoms, coordinates=coordinates))
+            structures.append(Structure(symbols=atoms, coordinates=coordinates, charge=ensemble.charge, multiplicity=ensemble.multiplicity))
 
         if not structures:
             raise ValueError("No valid conformers could be generated from SMILES")

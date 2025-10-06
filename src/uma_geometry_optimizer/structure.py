@@ -16,6 +16,9 @@ class Structure:
     coordinates: List[List[float]]
     energy: Optional[float] = None
     comment: str = ""
+    charge: int = 0
+    multiplicity: int = 1
+
     # room for future metadata without breaking API
     metadata: dict = field(default_factory=dict)
 

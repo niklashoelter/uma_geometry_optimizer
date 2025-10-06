@@ -11,7 +11,10 @@ from __future__ import annotations
 import copy
 import json
 import os
+import torch
 from typing import Any, Dict, Optional
+
+default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Default configuration aligned with examples/config.json
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -23,7 +26,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
         "model_name": "uma-s-1p1",
         "model_path": None,
-        "device": "cuda",
+        "device": default_device,
         "huggingface_token": None,
         "huggingface_token_file": "/home/employee/n_hoel07/hf_secret",
 

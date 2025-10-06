@@ -19,8 +19,8 @@ def example_optimize_from_smiles():
     print("=== Example 1: Single optimization from SMILES ===")
 
     # Simple optimization using convenience function
-    smiles = "CCO"  # Ethanol
-    print(f"Optimizing {smiles} (ethanol)...")
+    smiles = "C1=C[O+]=CC=C1"
+    print(f"Optimizing {smiles} ...")
 
     # Method 1: Using convenience function with file output
     struct: Structure = uma_geom_optimizer.optimize_single_smiles(
@@ -31,7 +31,7 @@ def example_optimize_from_smiles():
     print(f"✓ Optimization successful!")
     print(f"  Atoms: {struct.n_atoms}")
     print(f"  Final energy: {struct.energy:.6f} eV")
-    print(f"  Output saved to: ethanol_optimized.xyz")
+    print(f"  Output saved to: example_single_optimization_from_smiles.xyz")
 
     # Method 2: Step-by-step approach
     print("\n--- Alternative step-by-step approach ---")
@@ -78,8 +78,8 @@ def example_optimize_with_custom_config():
     config.optimization.verbose = True
     config.optimization.batch_optimization_mode = "sequential"
 
-    smiles = "c1ccccc1"  # Benzene
-    print(f"Optimizing {smiles} (benzene) with custom config...")
+    smiles = "C1=C[O+]=CC=C1"
+    print(f"Optimizing {smiles} with custom config...")
 
     struct: Structure = uma_geom_optimizer.optimize_single_smiles(
         smiles=smiles,
