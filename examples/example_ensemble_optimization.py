@@ -47,27 +47,24 @@ def example_batch_from_multi_xyz():
         print(f"✗ Input file {input_file} not found")
         return
 
-    try:
-        # Read structures from multi-XYZ file
-        structures = uma_geom_optimizer.read_multi_xyz(input_file)
-        print(f"Read {len(structures)} structures from {input_file}")
 
-        # Optimize the batch
-        results = uma_geom_optimizer.optimize_structure_batch(structures)
+    # Read structures from multi-XYZ file
+    structures = uma_geom_optimizer.read_multi_xyz(input_file)
+    print(f"Read {len(structures)} structures from {input_file}")
 
-        # Save results
-        comments = [f"Optimized structure {i+1} from multi-XYZ" for i in range(len(results))]
-        uma_geom_optimizer.save_multi_xyz(results, output_file, comments)
+    # Optimize the batch
+    results = uma_geom_optimizer.optimize_structure_batch(structures)
 
-        print(f"✓ Batch optimization successful!")
-        print(f"  Input structures: {len(structures)}")
-        print(f"  Successfully optimized: {len(results)}")
-        for i, s in enumerate(results):
-            print(f"  Structure {i+1}: {s.energy:.6f} eV")
-        print(f"  Output saved to: {output_file}")
+    # Save results
+    comments = [f"Optimized structure {i+1} from multi-XYZ" for i in range(len(results))]
+    uma_geom_optimizer.save_multi_xyz(results, output_file, comments)
 
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print(f"✓ Batch optimization successful!")
+    print(f"  Input structures: {len(structures)}")
+    print(f"  Successfully optimized: {len(results)}")
+    for i, s in enumerate(results):
+        print(f"  Structure {i+1}: {s.energy:.6f} eV")
+    print(f"  Output saved to: {output_file}")
 
 
 def example_batch_from_xyz_directory():
@@ -81,33 +78,30 @@ def example_batch_from_xyz_directory():
         print(f"✗ Input directory {input_dir} not found")
         return
 
-    try:
-        # Read structures from directory
-        structures = uma_geom_optimizer.read_xyz_directory(input_dir)
-        print(f"Read {len(structures)} XYZ files from {input_dir}/")
+    # Read structures from directory
+    structures = uma_geom_optimizer.read_xyz_directory(input_dir)
+    print(f"Read {len(structures)} XYZ files from {input_dir}/")
 
-        # List the files found
-        import glob
-        xyz_files = glob.glob(os.path.join(input_dir, "*.xyz"))
-        for xyz_file in xyz_files:
-            print(f"  - {os.path.basename(xyz_file)}")
+    # List the files found
+    import glob
 
-        # Optimize the batch
-        results = uma_geom_optimizer.optimize_structure_batch(structures)
+    xyz_files = glob.glob(os.path.join(input_dir, "*.xyz"))
+    for xyz_file in xyz_files:
+        print(f"  - {os.path.basename(xyz_file)}")
 
-        # Save results
-        comments = [f"Optimized structure {i+1} from directory" for i in range(len(results))]
-        uma_geom_optimizer.save_multi_xyz(results, output_file, comments)
+    # Optimize the batch
+    results = uma_geom_optimizer.optimize_structure_batch(structures)
 
-        print(f"✓ Batch optimization successful!")
-        print(f"  Input structures: {len(structures)}")
-        print(f"  Successfully optimized: {len(results)}")
-        for i, s in enumerate(results):
-            print(f"  Structure {i+1}: {s.energy:.6f} eV")
-        print(f"  Output saved to: {output_file}")
+    # Save results
+    comments = [f"Optimized structure {i+1} from directory" for i in range(len(results))]
+    uma_geom_optimizer.save_multi_xyz(results, output_file, comments)
 
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print(f"✓ Batch optimization successful!")
+    print(f"  Input structures: {len(structures)}")
+    print(f"  Successfully optimized: {len(results)}")
+    for i, s in enumerate(results):
+        print(f"  Structure {i+1}: {s.energy:.6f} eV")
+    print(f"  Output saved to: {output_file}")
 
 
 def example_ensemble_with_config():
@@ -123,25 +117,22 @@ def example_ensemble_with_config():
     smiles = "c1ccccc1"  # Benzene
     print(f"Optimizing {smiles} ensemble with custom config...")
 
-    try:
-        # Generate conformers with custom count from config
-        conformers = uma_geom_optimizer.smiles_to_ensemble(smiles, config.optimization.max_num_conformers)
-        results = uma_geom_optimizer.optimize_structure_batch(conformers, config)
+    # Generate conformers with custom count from config
+    conformers = uma_geom_optimizer.smiles_to_ensemble(smiles, config.optimization.max_num_conformers)
+    results = uma_geom_optimizer.optimize_structure_batch(conformers, config)
 
-        # Save optional output
-        uma_geom_optimizer.save_multi_xyz(
-            results,
-            "benzene_ensemble_custom.xyz",
-            [f"Optimized conformer {i+1} from SMILES: {smiles}" for i in range(len(results))]
-        )
+    # Save optional output
+    uma_geom_optimizer.save_multi_xyz(
+        results,
+        "example_ensemble_custom_config.xyz",
+        [f"Optimized conformer {i+1} from SMILES: {smiles}" for i in range(len(results))]
+    )
 
-        print(f"✓ Custom ensemble optimization successful!")
-        print(f"  Conformers: {len(results)}")
-        for i, s in enumerate(results):
-            print(f"  Conformer {i+1}: {s.energy:.6f} eV")
+    print(f"✓ Custom ensemble optimization successful!")
+    print(f"  Conformers: {len(results)}")
+    for i, s in enumerate(results):
+        print(f"  Conformer {i+1}: {s.energy:.6f} eV")
 
-    except Exception as e:
-        print(f"✗ Error: {e}")
 
 
 if __name__ == "__main__":
@@ -149,9 +140,9 @@ if __name__ == "__main__":
     print("=" * 70)
 
     example_ensemble_from_smiles()
-    # example_batch_from_multi_xyz()
-    # example_batch_from_xyz_directory()
-    # example_ensemble_with_config()
+    example_batch_from_multi_xyz()
+    example_batch_from_xyz_directory()
+    example_ensemble_with_config()
 
     print("\n" + "=" * 70)
     print("Examples completed! Check the generated XYZ files.")

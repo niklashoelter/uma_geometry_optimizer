@@ -12,13 +12,13 @@ that is actually implemented and tested.
 
 from .structure import Structure
 from .io_handler import read_xyz, read_multi_xyz, read_xyz_directory, smiles_to_xyz, smiles_to_ensemble, save_xyz_file, save_multi_xyz
-from .optimizer import optimize_single_structure, optimize_structure_batch, optimize_single_geometry, optimize_conformer_ensemble
+from .optimizer import optimize_single_structure, optimize_structure_batch, optimize_conformer_ensemble
 from .model import load_model
 from .config import Config, OptimizationConfig, default_config, load_config_from_file, save_config_to_file
 from .decorators import time_it
 
 # Convenience functions for common workflows
-def optimize_smiles(smiles: str, output_file: str = None, config: Config = None) -> Structure:
+def optimize_single_smiles(smiles: str, output_file: str = None, config: Config = None) -> Structure:
     """Convenient function to optimize a single molecule from SMILES.
 
     Args:
@@ -40,7 +40,7 @@ def optimize_smiles(smiles: str, output_file: str = None, config: Config = None)
 
     return result
 
-def optimize_xyz_file(input_file: str, output_file: str = None, config: Config = None) -> Structure:
+def optimize_single_xyz_file(input_file: str, output_file: str = None, config: Config = None) -> Structure:
     """Convenient function to optimize a molecule from XYZ file.
 
     Args:
@@ -108,8 +108,8 @@ __all__ = [
     "optimize_conformer_ensemble",
 
     # Convenience functions
-    "optimize_smiles",
-    "optimize_xyz_file",
+    "optimize_single_smiles",
+    "optimize_single_xyz_file",
     "optimize_smiles_ensemble",
 
     # Model functions

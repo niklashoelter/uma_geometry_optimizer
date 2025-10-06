@@ -22,29 +22,25 @@ def example_optimize_from_smiles():
     smiles = "CCO"  # Ethanol
     print(f"Optimizing {smiles} (ethanol)...")
 
-    try:
-        # Method 1: Using convenience function with file output
-        struct: Structure = uma_geom_optimizer.optimize_smiles(
-            smiles=smiles,
-            output_file="ethanol_optimized.xyz"
-        )
+    # Method 1: Using convenience function with file output
+    struct: Structure = uma_geom_optimizer.optimize_single_smiles(
+        smiles=smiles,
+        output_file="example_single_optimization_from_smiles.xyz"
+    )
 
-        print(f"✓ Optimization successful!")
-        print(f"  Atoms: {struct.n_atoms}")
-        print(f"  Final energy: {struct.energy:.6f} eV")
-        print(f"  Output saved to: ethanol_optimized.xyz")
+    print(f"✓ Optimization successful!")
+    print(f"  Atoms: {struct.n_atoms}")
+    print(f"  Final energy: {struct.energy:.6f} eV")
+    print(f"  Output saved to: ethanol_optimized.xyz")
 
-        # Method 2: Step-by-step approach
-        print("\n--- Alternative step-by-step approach ---")
-        struct2: Structure = uma_geom_optimizer.smiles_to_xyz(smiles)  # generate initial 3D structure
-        struct2.comment = f"Optimized from SMILES: {smiles}"
-        struct2 = uma_geom_optimizer.optimize_single_structure(struct2)
+    # Method 2: Step-by-step approach
+    print("\n--- Alternative step-by-step approach ---")
+    struct2: Structure = uma_geom_optimizer.smiles_to_xyz(smiles)  # generate initial 3D structure
+    struct2.comment = f"Optimized from SMILES: {smiles}"
+    struct2 = uma_geom_optimizer.optimize_single_structure(struct2)
 
-        print(f"✓ Step-by-step optimization successful!")
-        print(f"  Final energy: {struct2.energy:.6f} eV")
-
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print(f"✓ Step-by-step optimization successful!")
+    print(f"  Final energy: {struct2.energy:.6f} eV")
 
 
 def example_optimize_from_xyz():
@@ -53,27 +49,24 @@ def example_optimize_from_xyz():
 
     # Use one of the example XYZ files
     input_file = "read_multiple_xyz_dir/conf1_sp_geometry.xyz"
-    output_file = "conf1_optimized.xyz"
+    output_file = "example_single_optimization_from_xyz.xyz"
 
     if not os.path.exists(input_file):
         print(f"✗ Input file {input_file} not found")
         return
 
-    try:
-        # Method 1: Using convenience function
-        struct: Structure = uma_geom_optimizer.optimize_xyz_file(
-            input_file=input_file,
-            output_file=output_file
-        )
 
-        print(f"✓ Optimization successful!")
-        print(f"  Input: {input_file}")
-        print(f"  Atoms: {struct.n_atoms}")
-        print(f"  Final energy: {struct.energy:.6f} eV")
-        print(f"  Output saved to: {output_file}")
+    # Method 1: Using convenience function
+    struct: Structure = uma_geom_optimizer.optimize_single_xyz_file(
+        input_file=input_file,
+        output_file=output_file
+    )
 
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print(f"✓ Optimization successful!")
+    print(f"  Input: {input_file}")
+    print(f"  Atoms: {struct.n_atoms}")
+    print(f"  Final energy: {struct.energy:.6f} eV")
+    print(f"  Output saved to: {output_file}")
 
 
 def example_optimize_with_custom_config():
@@ -88,18 +81,14 @@ def example_optimize_with_custom_config():
     smiles = "c1ccccc1"  # Benzene
     print(f"Optimizing {smiles} (benzene) with custom config...")
 
-    try:
-        struct: Structure = uma_geom_optimizer.optimize_smiles(
-            smiles=smiles,
-            output_file="benzene_custom_optimized.xyz",
-            config=config
-        )
+    struct: Structure = uma_geom_optimizer.optimize_single_smiles(
+        smiles=smiles,
+        output_file="example_single_optimization_custom_config.xyz",
+        config=config
+    )
 
-        print(f"✓ Optimization successful!")
-        print(f"  Final energy: {struct.energy:.6f} eV")
-
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print(f"✓ Optimization successful!")
+    print(f"  Final energy: {struct.energy:.6f} eV")
 
 
 if __name__ == "__main__":

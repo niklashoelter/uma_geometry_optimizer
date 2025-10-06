@@ -3,6 +3,7 @@
 This module contains optimization logic for single structures and
 batches of structures (e.g., conformer ensembles).
 """
+import logging
 from pathlib import Path
 from typing import List, Tuple, Optional, TYPE_CHECKING
 
@@ -51,22 +52,17 @@ def optimize_single_structure(
         raise ValueError(f"Invalid coordinate format: {e}")
 
     try:
-        # Create ASE Atoms object
-        atoms = Atoms(symbols=symbols, positions=coords_array.tolist())
-
         # Load the Fairchem model from model.py
         if not calculator:
             calculator = load_model(config)
 
-        # Set the calculator for the atoms object
+        # Create ASE Atoms object
+        atoms = Atoms(symbols=symbols, positions=coords_array.tolist())
         atoms.calc = calculator
-
-        # Set up optimizer with configuration parameters
-        optimizer = BFGS(atoms, logfile=None)
 
         if opt_config.verbose:
             print(f"Starting geometry optimization for structure with {len(symbols)} atoms")
-
+        optimizer = BFGS(atoms, logfile=None)
         optimizer.run()
 
         if opt_config.verbose:
@@ -82,23 +78,7 @@ def optimize_single_structure(
         return structure
 
     except Exception as e:
-        if isinstance(e, (ValueError, RuntimeError, ImportError)):
-            raise
-        else:
-            raise RuntimeError(f"Optimization failed: {str(e)}")
-
-
-@time_it
-def optimize_single_geometry(
-    symbols: List[str],
-    coordinates: List[List[float]],
-    config: Optional[Config] = None,
-    calculator: 'FAIRChemCalculator' = None,
-) -> Tuple[List[str], List[List[float]], float]:
-    """Backward-compatible wrapper to optimize a single structure from symbols/coords."""
-    struct = Structure(symbols=symbols, coordinates=coordinates)
-    optimized = optimize_single_structure(struct, config, calculator)
-    return optimized.symbols, optimized.coordinates, optimized.energy if optimized.energy is not None else 0.0
+        raise RuntimeError(f"Optimization failed: {str(e)}")
 
 
 def optimize_structure_batch(
@@ -127,17 +107,21 @@ def optimize_structure_batch(
         if s.n_atoms != first_count:
             raise ValueError("All structures must have same number of atoms")
 
+    force_cpu = not config.optimization.device.lower().__contains__("cuda")
+    print(f"Optimization device: {'CPU' if force_cpu else 'GPU'}")
     mode = config.optimization.batch_optimization_mode.lower()
-    if mode == "sequential":
-        return _optimize_sequential_structures(structures, config)
-    elif mode == "batch":
+    if mode == "sequential" or force_cpu:
+        if not force_cpu and mode=="batch":
+            print("Warning: Batch optimization mode requires GPU, falling back to sequential mode on CPU.")
+        return _optimize_batch_sequential(structures, config)
+    elif mode == "batch" and not force_cpu:
         return _optimize_batch_structures(structures, config)
     else:
-        raise ValueError(f"Unknown optimization mode: {mode}. Use 'sequential' or 'batch'")
+        raise ValueError(f"Unknown optimization mode: {mode} on {config.optimization.device}. Use 'sequential' or 'batch', where batch is only supported on GPU.")
 
 
 @time_it
-def _optimize_sequential_structures(
+def _optimize_batch_sequential(
     structures: List[Structure],
     config,
 ) -> List[Structure]:
@@ -181,13 +165,29 @@ def _optimize_batch_structures(
     opt_config = config.optimization
     force_cpu = not opt_config.device.lower().__contains__("cuda")
 
+    model = None
     model_path = Path(opt_config.model_path) if opt_config.model_path else None
-    model_name = opt_config.model_name if opt_config.model_path is None else None
+    model_name = opt_config.model_name if opt_config.model_name else None
+    if model_path:
+        if not model_path.exists():
+            logging.error(f"Specified model_path does not exist: {model_path}")
+            logging.error("Falling back to default model 'uma-s-1p1")
+            model_name = "uma-s-1p1"
+        else:
+            try:
+                model = FairChemModel(model=model_path, cpu=force_cpu, task_name="omol")
+            except:
+                logging.error(f"Failed to load model from path: {model_path}")
+                logging.error("Falling back to default model 'uma-s-1p1'")
+                model_name = "uma-s-1p1"
+                model_path = None
+
     if model_name is None and model_path is None:
-        print("No model_name or model_path specified in config, defaulting to 'uma-s-1p1' and './models'")
+        logging.error("No model_name or model_path specified in config, defaulting to 'uma-s-1p1' and './models'")
         model_name = "uma-s-1p1"
+
     print(f"Loading model '{model_name}' from '{model_path or './models'}' on {'CPU' if force_cpu else 'GPU'}")
-    model = FairChemModel(model=model_path, model_name=model_name, cpu=force_cpu, task_name="omol")
+    if not model: model = FairChemModel(model=model_path, model_name=model_name, cpu=force_cpu, task_name="omol")
 
     optimizer_name = getattr(opt_config, 'batch_optimizer', 'fire') or 'fire'
     optimizer_name = str(optimizer_name).strip().lower()

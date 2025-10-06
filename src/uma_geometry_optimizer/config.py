@@ -197,7 +197,6 @@ class Config:
             }
         }
 
-
 # Default configuration instance for backward compatibility
 default_config = Config()
 
