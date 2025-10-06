@@ -2,7 +2,7 @@
 
 This package provides essential tools for:
 - Single molecule optimization from SMILES strings or XYZ files
-- Conformer ensemble optimization (sequential processing of multiple conformers)
+- Batch optimization of multiple structures (e.g., conformer ensembles)
 - Format conversion between SMILES and XYZ coordinates
 - Configurable optimization parameters through JSON/YAML configuration files
 
@@ -10,14 +10,15 @@ The package is designed to be simple and focused, providing only the functionali
 that is actually implemented and tested.
 """
 
+from .structure import Structure
 from .io_handler import read_xyz, read_multi_xyz, read_xyz_directory, smiles_to_xyz, smiles_to_ensemble, save_xyz_file, save_multi_xyz
-from .optimizer import optimize_single_geometry, optimize_conformer_ensemble
+from .optimizer import optimize_single_structure, optimize_structure_batch, optimize_single_geometry, optimize_conformer_ensemble
 from .model import load_model
 from .config import Config, OptimizationConfig, default_config, load_config_from_file, save_config_to_file
 from .decorators import time_it
 
 # Convenience functions for common workflows
-def optimize_smiles(smiles: str, output_file: str = None, config: Config = None) -> tuple:
+def optimize_smiles(smiles: str, output_file: str = None, config: Config = None) -> Structure:
     """Convenient function to optimize a single molecule from SMILES.
 
     Args:
@@ -26,17 +27,20 @@ def optimize_smiles(smiles: str, output_file: str = None, config: Config = None)
         config: Optional configuration object.
 
     Returns:
-        Tuple of (symbols, optimized_coordinates, energy).
+        Structure: The optimized molecular structure.
     """
-    symbols, coords = smiles_to_xyz(smiles)
-    result = optimize_single_geometry(symbols, coords, config)
+    structure = smiles_to_xyz(smiles)  # returns Structure
+    if not isinstance(structure, Structure):
+        raise ValueError("smiles_to_xyz did not return a Structure")
+    structure.comment = f"Optimized from SMILES: {smiles}"
+    result = optimize_single_structure(structure, config)
 
     if output_file:
-        save_xyz_file(result[0], result[1], result[2], output_file, f"Optimized from SMILES: {smiles}")
+        save_xyz_file(result, output_file)
 
     return result
 
-def optimize_xyz_file(input_file: str, output_file: str = None, config: Config = None) -> tuple:
+def optimize_xyz_file(input_file: str, output_file: str = None, config: Config = None) -> Structure:
     """Convenient function to optimize a molecule from XYZ file.
 
     Args:
@@ -45,13 +49,14 @@ def optimize_xyz_file(input_file: str, output_file: str = None, config: Config =
         config: Optional configuration object.
 
     Returns:
-        Tuple of (symbols, optimized_coordinates, energy).
+        Structure: The optimized molecular structure.
     """
-    symbols, coords = read_xyz(input_file)
-    result = optimize_single_geometry(symbols, coords, config)
+    structure = read_xyz(input_file)
+    structure.comment = f"Optimized from: {input_file}"
+    result = optimize_single_structure(structure, config)
 
     if output_file:
-        save_xyz_file(result[0], result[1], result[2], output_file, f"Optimized from: {input_file}")
+        save_xyz_file(result, output_file)
 
     return result
 
@@ -68,7 +73,9 @@ def optimize_smiles_ensemble(smiles: str, num_conformers: int = 10, output_file:
         List of (symbols, optimized_coordinates, energy) tuples.
     """
     conformers = smiles_to_ensemble(smiles, num_conformers)
-    results = optimize_conformer_ensemble(conformers, config)
+    if not isinstance(conformers, list) or (len(conformers) and not isinstance(conformers[0], Structure)):
+        raise ValueError("smiles_to_ensemble did not return a list of Structure")
+    results = optimize_structure_batch(conformers, config)
 
     if output_file:
         comments = [f"Optimized conformer {i+1} from SMILES: {smiles}" for i in range(len(results))]
@@ -76,11 +83,14 @@ def optimize_smiles_ensemble(smiles: str, num_conformers: int = 10, output_file:
 
     return results
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Niklas Hölter"
 __email__ = "niklas.hoelter@uni-muenster.de"
 
 __all__ = [
+    # Data types
+    "Structure",
+
     # I/O functions
     "read_xyz",
     "read_multi_xyz", 
@@ -91,6 +101,9 @@ __all__ = [
     "save_multi_xyz",
 
     # Optimization functions
+    "optimize_single_structure",
+    "optimize_structure_batch",
+    # Backward-compatible wrappers
     "optimize_single_geometry",
     "optimize_conformer_ensemble",
 

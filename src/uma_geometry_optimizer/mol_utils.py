@@ -1,12 +1,14 @@
-"""Molecular utilities for SMILES processing and conformer generation.
+"""Molecular utilities for SMILES processing and structure/conformer generation.
 
 This module provides functions for converting SMILES strings to 3D molecular
 structures and generating conformer ensembles using the morfeus library with RDKit.
 """
 
-from typing import List, Tuple
+from typing import List
 from numbers import Integral
 from .decorators import time_it
+from .structure import Structure
+
 
 def _to_symbol_list(elements) -> List[str]:
     """Convert a sequence of element descriptors to a list of atomic symbols.
@@ -51,7 +53,7 @@ def _to_coord_list(coords) -> List[List[float]]:
     return [[float(c) for c in row] for row in coords]
 
 @time_it
-def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[Tuple[List[str], List[List[float]]]]:
+def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[Structure]:
     """Generate multiple conformers from a SMILES string.
 
     This function uses the morfeus library to generate conformers from a SMILES string.
@@ -62,9 +64,7 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[T
         max_num_confs: Maximum number of conformers to return (default: 10).
 
     Returns:
-        List of conformers, each as a tuple of (element_symbols, coordinates).
-        Element symbols are strings like ['C', 'H', 'O'].
-        Coordinates are nested lists [[x1,y1,z1], [x2,y2,z2], ...].
+        List of Structure objects representing conformers.
 
     Raises:
         ValueError: If SMILES string is invalid or conformer generation fails.
@@ -91,7 +91,7 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[T
         ensemble.sort()
 
         # Extract conformers up to the requested maximum
-        conformers = []
+        structures: List[Structure] = []
         for i, conformer in enumerate(ensemble):
             if i >= max_num_confs:
                 break
@@ -104,12 +104,12 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[T
             if len(atoms) != len(coordinates):
                 continue  # Skip invalid conformers
 
-            conformers.append((atoms, coordinates))
+            structures.append(Structure(symbols=atoms, coordinates=coordinates))
 
-        if not conformers:
+        if not structures:
             raise ValueError("No valid conformers could be generated from SMILES")
 
-        return conformers
+        return structures
 
     except ImportError as e:
         raise ImportError(
@@ -120,7 +120,7 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[T
         raise ValueError(f"Failed to generate conformers from SMILES '{smiles}': {e}") from e
 
 
-def smiles_to_structure(smiles: str) -> Tuple[List[str], List[List[float]]]:
+def smiles_to_structure(smiles: str) -> Structure:
     """Convert SMILES string to a single 3D molecular structure.
 
     This function generates the lowest-energy conformer from a SMILES string.
@@ -131,9 +131,7 @@ def smiles_to_structure(smiles: str) -> Tuple[List[str], List[List[float]]]:
         smiles: Valid SMILES string representing the molecular structure.
 
     Returns:
-        Tuple of (element_symbols, coordinates) for the lowest-energy conformer.
-        Element symbols are strings like ['C', 'H', 'O'].
-        Coordinates are nested lists [[x1,y1,z1], [x2,y2,z2], ...].
+        Structure instance for the lowest-energy conformer.
 
     Raises:
         ValueError: If SMILES string is invalid or structure generation fails.

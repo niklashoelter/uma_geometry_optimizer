@@ -1,20 +1,23 @@
 """Command Line Interface for UMA Geometry Optimizer.
 
 This module provides a command-line interface for molecular geometry optimization
-using Fairchem UMA models. The CLI supports two main optimization modes:
+using Fairchem UMA models. The CLI supports three main optimization modes:
 
 1. Single Structure Optimization: Optimize individual molecular structures
-2. Ensemble Optimization: Optimize multiple conformers of the same molecule using batch inference
+2. Ensemble Optimization (SMILES): Optimize multiple conformers generated from a SMILES using batch inference
+3. Batch Optimization (Files): Optimize multiple structures from multi-XYZ or directory inputs
 
 Examples:
     Single structure optimization:
         uma-geom-opt optimize --smiles "CCO" --output ethanol.xyz
         uma-geom-opt optimize --xyz molecule.xyz --output optimized.xyz
 
-    Ensemble optimization:
+    Ensemble optimization from SMILES:
         uma-geom-opt ensemble --smiles "c1ccccc1" --conformers 10 --output benzene_ensemble.xyz
-        uma-geom-opt ensemble --multi-xyz conformers.xyz --output optimized_ensemble.xyz
-        uma-geom-opt ensemble --xyz-dir ./conformer_files/ --output optimized_ensemble.xyz
+
+    Batch optimization from files:
+        uma-geom-opt batch --multi-xyz structures.xyz --output optimized_structures.xyz
+        uma-geom-opt batch --xyz-dir ./xyz_files/ --output optimized_structures.xyz
 
     Utility commands:
         uma-geom-opt convert --smiles "CCO" --output ethanol.xyz
@@ -28,9 +31,10 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-from typing import cast, List, Tuple
+from typing import cast, List
 
 from .config import Config, load_config_from_file, save_config_to_file
+from .structure import Structure
 from .io_handler import (
     read_xyz, read_multi_xyz, read_xyz_directory,
     smiles_to_xyz, smiles_to_ensemble,
@@ -49,7 +53,8 @@ def setup_parser() -> argparse.ArgumentParser:
 
     The parser supports the following main commands:
         - optimize: Single structure optimization
-        - ensemble: Conformer ensemble optimization
+        - ensemble: Conformer ensemble optimization from SMILES
+        - batch: Batch optimization from multi-XYZ file or directory
         - convert: SMILES to XYZ conversion
         - generate: Generate conformer ensemble from SMILES
         - config: Configuration management
@@ -68,38 +73,35 @@ OPTIMIZATION MODES:
      uma-geom-opt optimize --xyz molecule.xyz --output molecule_opt.xyz
      uma-geom-opt optimize --smiles "C1=CC=CC=C1" --config custom.json --output benzene_opt.xyz
 
-2. Ensemble Optimization:
-   Optimize multiple conformers of the same molecule using batch inference.
-   This is more efficient for multiple conformers than individual optimizations.
+2. Ensemble Optimization (SMILES):
+   Optimize multiple conformers of the same molecule generated from SMILES using batch inference.
    
    Examples:
-     # Generate and optimize conformers from SMILES
      uma-geom-opt ensemble --smiles "c1ccccc1" --conformers 10 --output benzene_ensemble.xyz
-     
-     # Optimize existing conformers from multi-XYZ file
-     uma-geom-opt ensemble --multi-xyz conformers.xyz --output optimized_ensemble.xyz
-     
-     # Optimize conformers from directory of XYZ files
-     uma-geom-opt ensemble --xyz-dir ./conformer_files/ --output optimized_ensemble.xyz
-     
-     # With custom configuration
      uma-geom-opt ensemble --smiles "CCO" --conformers 5 --config custom.json --output ethanol_ensemble.xyz
+
+3. Batch Optimization (Files):
+   Optimize multiple structures from a multi-XYZ file or a directory of XYZ files.
+   
+   Examples:
+     uma-geom-opt batch --multi-xyz structures.xyz --output optimized_structures.xyz
+     uma-geom-opt batch --xyz-dir ./xyz_files/ --output optimized_structures.xyz
 
 UTILITY COMMANDS:
 
-3. Structure Conversion:
+4. Structure Conversion:
    Convert SMILES to 3D coordinates without optimization.
    
    Examples:
      uma-geom-opt convert --smiles "CCO" --output ethanol.xyz
 
-4. Conformer Generation:
+5. Conformer Generation:
    Generate multiple conformers from SMILES without optimization.
    
    Examples:
      uma-geom-opt generate --smiles "c1ccccc1" --conformers 5 --output benzene_conformers.xyz
 
-5. Configuration Management:
+6. Configuration Management:
    Create and validate configuration files.
    
    Examples:
@@ -139,24 +141,15 @@ CONFIGURATION:
         help='Configuration file path (default: config.json if exists)'
     )
 
-    # Ensemble optimization (conformers of same molecule)
+    # Ensemble optimization (conformers of same molecule from SMILES)
     ensemble_parser = subparsers.add_parser(
         'ensemble',
-        help='Optimize conformer ensemble using batch inference',
-        description='Optimize multiple conformers of the same molecule efficiently using batch inference.'
+        help='Optimize conformer ensemble from SMILES using batch inference',
+        description='Optimize multiple conformers of the same molecule generated from SMILES efficiently using batch inference.'
     )
-    ensemble_input = ensemble_parser.add_mutually_exclusive_group(required=True)
-    ensemble_input.add_argument(
-        '--smiles', type=str,
+    ensemble_parser.add_argument(
+        '--smiles', type=str, required=True,
         help='SMILES string to generate and optimize conformers'
-    )
-    ensemble_input.add_argument(
-        '--multi-xyz', type=str,
-        help='Multi-structure XYZ file containing conformers to optimize'
-    )
-    ensemble_input.add_argument(
-        '--xyz-dir', type=str,
-        help='Directory containing XYZ files of conformers to optimize'
     )
     ensemble_parser.add_argument(
         '--conformers', type=int, default=None,
@@ -167,6 +160,30 @@ CONFIGURATION:
         help='Output multi-XYZ file path for optimized ensemble'
     )
     ensemble_parser.add_argument(
+        '--config', '-c', type=str,
+        help='Configuration file path (default: config.json if exists)'
+    )
+
+    # Batch optimization (structures from files)
+    batch_parser = subparsers.add_parser(
+        'batch',
+        help='Optimize multiple structures from multi-XYZ file or directory',
+        description='Optimize multiple structures using batch inference from a multi-XYZ file or a directory of XYZ files.'
+    )
+    batch_input = batch_parser.add_mutually_exclusive_group(required=True)
+    batch_input.add_argument(
+        '--multi-xyz', type=str,
+        help='Multi-structure XYZ file containing structures to optimize'
+    )
+    batch_input.add_argument(
+        '--xyz-dir', type=str,
+        help='Directory containing XYZ files of structures to optimize'
+    )
+    batch_parser.add_argument(
+        '--output', '-o', type=str, required=True,
+        help='Output multi-XYZ file path for optimized structures'
+    )
+    batch_parser.add_argument(
         '--config', '-c', type=str,
         help='Configuration file path (default: config.json if exists)'
     )
@@ -247,28 +264,28 @@ def cmd_optimize(args, config: Config):
     Raises:
         SystemExit: If optimization fails or input cannot be processed.
     """
-    from .optimizer import optimize_single_geometry
+    from .optimizer import optimize_single_structure
 
     try:
         if args.smiles:
             if config.optimization.verbose:
                 print(f"Converting SMILES '{args.smiles}' to 3D coordinates...")
-            symbols, coordinates = smiles_to_xyz(args.smiles)
-            comment = f"Optimized from SMILES: {args.smiles}"
+            structure = cast(Structure, smiles_to_xyz(args.smiles))
+            structure.comment = f"Optimized from SMILES: {args.smiles}"
         else:
             if config.optimization.verbose:
                 print(f"Reading structure from {args.xyz}")
-            symbols, coordinates = read_xyz(args.xyz)
-            comment = f"Optimized from: {args.xyz}"
+            structure = read_xyz(args.xyz)
+            structure.comment = f"Optimized from: {args.xyz}"
 
         if config.optimization.verbose:
-            print(f"Optimizing structure with {len(symbols)} atoms...")
+            print(f"Optimizing structure with {structure.n_atoms} atoms...")
 
-        opt_symbols, opt_coords, energy = optimize_single_geometry(symbols, coordinates, config)
-        save_xyz_file(opt_symbols, opt_coords, energy, args.output, comment)
+        optimized = optimize_single_structure(structure, config)
+        save_xyz_file(optimized, args.output)
 
         if config.optimization.verbose:
-            print(f"Optimization completed. Final energy: {energy:.6f} eV")
+            print(f"Optimization completed. Final energy: {optimized.energy:.6f} eV")
             print(f"Optimized structure saved to {args.output}")
 
     except Exception as e:
@@ -277,59 +294,33 @@ def cmd_optimize(args, config: Config):
 
 
 def cmd_ensemble(args, config: Config):
-    """Handle conformer ensemble optimization command.
+    """Handle conformer ensemble optimization from SMILES.
 
-    This command optimizes multiple conformers of the same molecule using batch inference
-    for improved efficiency. Conformers can be generated from SMILES or loaded from files.
-
-    Args:
-        args: Parsed command line arguments containing input specification and output path.
-        config: Configuration object with optimization settings.
-
-    Raises:
-        SystemExit: If optimization fails or input cannot be processed.
+    This command optimizes multiple conformers of the same molecule using batch inference.
     """
-    from .optimizer import optimize_conformer_ensemble
+    from .optimizer import optimize_structure_batch
 
     try:
-        conformers: List[Tuple[List[str], List[List[float]]]] = []
-        if args.smiles:
-            # Determine number of conformers from CLI or config
-            num_conf = args.conformers or config.optimization.max_num_conformers
-            if config.optimization.verbose:
-                print(f"Generating {num_conf} conformers for SMILES: {args.smiles}")
+        # Determine number of conformers from CLI or config
+        num_conf = args.conformers or config.optimization.max_num_conformers
+        if config.optimization.verbose:
+            print(f"Generating {num_conf} conformers for SMILES: {args.smiles}")
 
-            conformers = cast(List[Tuple[List[str], List[List[float]]]], smiles_to_ensemble(args.smiles, num_conformers=num_conf))
-        elif args.multi_xyz:
-            # Read conformers from multi-structure XYZ file
-            if config.optimization.verbose:
-                print(f"Reading conformers from multi-XYZ file: {args.multi_xyz}")
-            conformers = read_multi_xyz(args.multi_xyz)
-            smiles = "unknown"
-        elif args.xyz_dir:
-            # Read conformers from directory of XYZ files
-            if config.optimization.verbose:
-                print(f"Reading conformers from directory: {args.xyz_dir}")
-            conformers = read_xyz_directory(args.xyz_dir)
-            smiles = "unknown"
+        conformers: List[Structure] = cast(List[Structure], smiles_to_ensemble(args.smiles, num_conformers=num_conf))
 
         if not conformers:
             print("Error: No conformers found")
             sys.exit(1)
 
         if config.optimization.verbose:
-            print(f"Found {len(conformers)} conformers with {len(conformers[0][0])} atoms each")
+            print(f"Found {len(conformers)} conformers with {conformers[0].n_atoms} atoms each")
             print("Starting ensemble optimization using Fairchem UMA model...")
 
         # Optimize conformer ensemble using configured mode (sequential/batch)
-        optimized_conformers = optimize_conformer_ensemble(conformers, config)
+        optimized_conformers = optimize_structure_batch(conformers, config)
 
-        # Generate comments for output
-        if args.smiles:
-            comments = [f"Optimized conformer {i+1} from SMILES: {args.smiles}"
-                       for i in range(len(optimized_conformers))]
-        else:
-            comments = [f"Optimized conformer {i+1}" for i in range(len(optimized_conformers))]
+        # Generate comments for output (keep conformer wording for SMILES workflows)
+        comments = [f"Optimized conformer {i+1} from SMILES: {args.smiles}" for i in range(len(optimized_conformers))]
 
         # Save results
         save_multi_xyz(optimized_conformers, args.output, comments)
@@ -343,31 +334,54 @@ def cmd_ensemble(args, config: Config):
         sys.exit(1)
 
 
+def cmd_batch(args, config: Config):
+    """Handle batch optimization from files (multi-XYZ or directory)."""
+    from .optimizer import optimize_structure_batch
+
+    try:
+        if args.multi_xyz:
+            if config.optimization.verbose:
+                print(f"Reading structures from multi-XYZ file: {args.multi_xyz}")
+            structures = read_multi_xyz(args.multi_xyz)
+        else:
+            if config.optimization.verbose:
+                print(f"Reading structures from directory: {args.xyz_dir}")
+            structures = read_xyz_directory(args.xyz_dir)
+
+        if not structures:
+            print("Error: No structures found")
+            sys.exit(1)
+
+        if config.optimization.verbose:
+            print(f"Found {len(structures)} structures with {structures[0].n_atoms} atoms each")
+            print("Starting batch optimization using Fairchem UMA model...")
+
+        optimized_structures = optimize_structure_batch(structures, config)
+
+        comments = [f"Optimized structure {i+1}" for i in range(len(optimized_structures))]
+        save_multi_xyz(optimized_structures, args.output, comments)
+
+        if config.optimization.verbose:
+            print(f"Batch optimization completed successfully!")
+            print(f"{len(optimized_structures)} optimized structures saved to {args.output}")
+
+    except Exception as e:
+        print(f"Error during batch optimization: {e}")
+        sys.exit(1)
+
+
 def cmd_convert(args, config: Config):
-    """Handle SMILES to XYZ conversion command.
-
-    This utility command converts a SMILES string to 3D coordinates without optimization.
-    Useful for generating initial structures or format conversion.
-
-    Args:
-        args: Parsed command line arguments containing SMILES string and output path.
-        config: Configuration object (used for verbosity settings).
-
-    Raises:
-        SystemExit: If conversion fails.
-    """
+    """Handle SMILES to XYZ conversion command."""
     if config.optimization.verbose:
         print(f"Converting SMILES '{args.smiles}' to XYZ format...")
 
     try:
-        symbols, coordinates = smiles_to_xyz(args.smiles)
-        comment = f"Generated from SMILES: {args.smiles}"
-
-        # Save without energy information (conversion only)
-        save_xyz_file(symbols, coordinates, None, args.output, comment)
+        structure = cast(Structure, smiles_to_xyz(args.smiles))
+        structure.comment = f"Generated from SMILES: {args.smiles}"
+        save_xyz_file(structure, args.output)
 
         if config.optimization.verbose:
-            print(f"Structure with {len(symbols)} atoms saved to {args.output}")
+            print(f"Structure with {structure.n_atoms} atoms saved to {args.output}")
 
     except Exception as e:
         print(f"Error converting SMILES to XYZ: {e}")
@@ -375,26 +389,14 @@ def cmd_convert(args, config: Config):
 
 
 def cmd_generate(args, config: Config):
-    """Handle conformer generation command.
-
-    This utility command generates multiple conformers from a SMILES string without optimization.
-    Useful for creating initial conformer ensembles for later processing.
-
-    Args:
-        args: Parsed command line arguments containing SMILES string, conformer count, and output path.
-        config: Configuration object (used for verbosity settings).
-
-    Raises:
-        SystemExit: If generation fails.
-    """
+    """Handle conformer generation command (no optimization)."""
     num_conf = args.conformers or config.optimization.max_num_conformers
     if config.optimization.verbose:
         print(f"Generating {num_conf} conformers from SMILES '{args.smiles}'...")
 
     try:
-        conformers = smiles_to_ensemble(args.smiles, num_conf)
-        comments = [f"Conformer {i+1} from SMILES: {args.smiles}"
-                   for i in range(len(conformers))]
+        conformers = cast(List[Structure], smiles_to_ensemble(args.smiles, num_conf))
+        comments = [f"Conformer {i+1} from SMILES: {args.smiles}" for i in range(len(conformers))]
 
         save_multi_xyz(conformers, args.output, comments)
 
@@ -407,18 +409,7 @@ def cmd_generate(args, config: Config):
 
 
 def cmd_config(args, config: Config):
-    """Handle configuration management commands.
-
-    This command provides utilities for creating default configuration files
-    and validating existing configuration files.
-
-    Args:
-        args: Parsed command line arguments containing config operation and file path.
-        config: Configuration object (not used for config operations).
-
-    Raises:
-        SystemExit: If configuration operation fails.
-    """
+    """Handle configuration management commands."""
     try:
         if args.create:
             default_config = Config()
@@ -438,21 +429,7 @@ def cmd_config(args, config: Config):
 
 
 def main():
-    """Main CLI entry point.
-
-    This function sets up argument parsing, loads configuration, handles global options,
-    and routes commands to appropriate handlers. It provides centralized error handling
-    and configuration management for all CLI operations.
-
-    The CLI supports two main optimization modes:
-    1. Single structure optimization (optimize command)
-    2. Ensemble optimization with batch inference (ensemble command)
-
-    Additional utility commands are provided for format conversion and conformer generation.
-
-    Raises:
-        SystemExit: On error or keyboard interrupt.
-    """
+    """Main CLI entry point."""
     parser = setup_parser()
     args = parser.parse_args()
 
@@ -488,6 +465,8 @@ def main():
             cmd_optimize(args, config)
         elif args.command == 'ensemble':
             cmd_ensemble(args, config)
+        elif args.command == 'batch':
+            cmd_batch(args, config)
         elif args.command == 'convert':
             cmd_convert(args, config)
         elif args.command == 'generate':
