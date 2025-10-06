@@ -6,66 +6,67 @@ and converting between different representations.
 
 import os
 import glob
-from typing import List, Tuple, Optional
+from typing import List, Optional, Union
 
-from .mol_utils import smiles_to_structure, smiles_to_conformer_ensemble
+from .structure import Structure
+from .mol_utils import smiles_to_structure as _smiles_to_structure_util, smiles_to_conformer_ensemble as _smiles_to_ensemble_util
 
-def read_xyz(file_path: str) -> Tuple[List[str], List[List[float]]]:
-    """Read an XYZ file and return atom symbols and their coordinates.
-    
+
+def read_xyz(file_path: str) -> Structure:
+    """Read an XYZ file and return a Structure.
+
     Args:
         file_path: Path to the XYZ file to read.
         
     Returns:
-        A tuple containing:
-            - List of atom symbols (e.g., ['C', 'H', 'H', 'H'])
-            - List of coordinates, where each coordinate is [x, y, z]
-            
+        Structure object with symbols, coordinates, and optional comment/energy.
+
     Raises:
         FileNotFoundError: If the specified file does not exist.
         ValueError: If the file format is invalid.
-        
-    Example:
-        >>> symbols, coords = read_xyz("molecule.xyz")
-        >>> print(symbols)
-        ['C', 'H', 'H', 'H', 'H']
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File {file_path} not found")
 
-    symbols = []
-    coordinates = []
+    symbols: List[str] = []
+    coordinates: List[List[float]] = []
+    comment = ""
+    energy: Optional[float] = None
 
     try:
         with open(file_path, 'r') as f:
-            lines = f.readlines()
-
-        # Preserve comment line even if empty. Only strip \n but keep blank lines
-        lines = [line.rstrip('\n') for line in lines]
+            lines = [line.rstrip('\n') for line in f.readlines()]
 
         # First line should contain the number of atoms
         try:
             num_atoms = int(lines[0])
-        except ValueError:
+        except Exception:
             raise ValueError("First line must contain the number of atoms as an integer")
 
-        # Second line is typically a comment line (skip it)
-        # Do not drop empty comment line; atom lines start at index 2
+        # Comment line
         if len(lines) < 2 + num_atoms:
             raise ValueError(f"Expected {num_atoms} atom lines, but found {max(0, len(lines)-2)}")
+        comment = lines[1] if len(lines) > 1 else ""
+
+        # Try parse energy from comment if present
+        if "Energy:" in comment:
+            try:
+                # e.g., "... | Energy: -12.345 eV"
+                after = comment.split("Energy:", 1)[1].strip()
+                val = after.split()[0]
+                energy = float(val)
+            except Exception:
+                energy = None
 
         for i in range(num_atoms):
-            line = lines[2 + i]
-            parts = line.split()
+            parts = lines[2 + i].split()
             if len(parts) < 4:
                 raise ValueError(f"Line {i+3} must contain at least 4 elements: symbol x y z")
-
             symbol = parts[0]
             try:
                 x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
             except ValueError:
                 raise ValueError(f"Invalid coordinates in line {i+3}: {parts[1:4]}")
-
             symbols.append(symbol)
             coordinates.append([x, y, z])
 
@@ -75,16 +76,17 @@ def read_xyz(file_path: str) -> Tuple[List[str], List[List[float]]]:
         else:
             raise ValueError(f"Error reading XYZ file: {str(e)}")
 
-    return symbols, coordinates
+    return Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment)
 
-def read_multi_xyz(file_path: str) -> List[Tuple[List[str], List[List[float]]]]:
-    """Read an XYZ file containing multiple structures (conformers).
+
+def read_multi_xyz(file_path: str) -> List[Structure]:
+    """Read an XYZ file containing multiple structures.
 
     Args:
         file_path: Path to the multi-structure XYZ file.
 
     Returns:
-        List of structures, each a tuple of (symbols, coordinates).
+        List of Structure objects.
 
     Raises:
         FileNotFoundError: If the specified file does not exist.
@@ -93,7 +95,7 @@ def read_multi_xyz(file_path: str) -> List[Tuple[List[str], List[List[float]]]]:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File {file_path} not found")
 
-    structures = []
+    structures: List[Structure] = []
 
     try:
         with open(file_path, 'r') as f:
@@ -118,23 +120,36 @@ def read_multi_xyz(file_path: str) -> List[Tuple[List[str], List[List[float]]]]:
                 break
 
             # Comment line at i+1 (may be empty)
-            symbols = []
-            coordinates = []
+            comment = lines[i + 1] if (i + 1) < len(lines) else ""
+            energy: Optional[float] = None
+            if "Energy:" in comment:
+                try:
+                    after = comment.split("Energy:", 1)[1].strip()
+                    val = after.split()[0]
+                    energy = float(val)
+                except Exception:
+                    energy = None
 
+            symbols: List[str] = []
+            coordinates: List[List[float]] = []
+
+            valid = True
             for j in range(num_atoms):
                 parts = lines[i + 2 + j].split()
                 if len(parts) < 4:
+                    valid = False
                     break
                 symbol = parts[0]
                 try:
                     x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
                 except ValueError:
+                    valid = False
                     break
                 symbols.append(symbol)
                 coordinates.append([x, y, z])
 
-            if len(symbols) == num_atoms:
-                structures.append((symbols, coordinates))
+            if valid and len(symbols) == num_atoms:
+                structures.append(Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment))
 
             i = i + 2 + num_atoms
 
@@ -143,7 +158,8 @@ def read_multi_xyz(file_path: str) -> List[Tuple[List[str], List[List[float]]]]:
 
     return structures
 
-def read_xyz_directory(directory_path: str) -> List[Tuple[List[str], List[List[float]]]]:
+
+def read_xyz_directory(directory_path: str) -> List[Structure]:
     """Read all XYZ files from a directory.
 
     Args:
@@ -164,12 +180,11 @@ def read_xyz_directory(directory_path: str) -> List[Tuple[List[str], List[List[f
     if not xyz_files:
         raise ValueError(f"No XYZ files found in directory {directory_path}")
 
-    structures = []
+    structures: List[Structure] = []
 
     for xyz_file in xyz_files:
         try:
-            symbols, coordinates = read_xyz(xyz_file)
-            structures.append((symbols, coordinates))
+            structures.append(read_xyz(xyz_file))
         except Exception as e:
             print(f"Warning: Failed to read {xyz_file}: {e}")
 
@@ -179,219 +194,114 @@ def read_xyz_directory(directory_path: str) -> List[Tuple[List[str], List[List[f
     return structures
 
 
-def smiles_to_xyz(smiles_string: str, return_full_xyz_str = False) -> Tuple[List[str], List[List[float]]] | str:
-    """Convert a SMILES string to XYZ file format string.
-
-    This function takes a SMILES string as input and converts it into an XYZ
-    file format string using the molecular utilities from mol_utils module.
+def smiles_to_xyz(smiles_string: str, return_full_xyz_str: bool = False) -> Union[Structure, str]:
+    """Convert a SMILES string to XYZ structure or string.
 
     Args:
         smiles_string: A valid SMILES string representing the molecular structure.
+        return_full_xyz_str: If True, return an XYZ-format string. Otherwise, a Structure.
 
     Returns:
-        A string containing the molecule's coordinates in XYZ format.
-
-    Raises:
-        ValueError: If the SMILES string is invalid or conversion fails.
-        RuntimeError: If there are issues with the molecular conversion process.
-
-    Example:
-        >>> xyz_string = smiles_to_xyz("CCO")
-        >>> print(xyz_string)
-        9
-        Generated from SMILES: CCO
-        C    -0.644300    0.133900   -0.120500
-        ...
+        Structure or XYZ string depending on return_full_xyz_str.
     """
     if not smiles_string or not smiles_string.strip():
         raise ValueError("SMILES string cannot be empty or None")
 
-    try:
-        # Use mol_utils function to get atoms and coordinates
-        atoms, coordinates = smiles_to_structure(smiles_string.strip())
+    struct = _smiles_to_structure_util(smiles_string.strip())
 
-        if len(atoms) != len(coordinates):
-            raise ValueError("Mismatch between number of atoms and coordinates")
+    if return_full_xyz_str:
+        xyz_lines = [str(struct.n_atoms)]
+        xyz_lines.append(f"Generated from SMILES: {smiles_string}")
+        for atom, coord in zip(struct.symbols, struct.coordinates):
+            xyz_lines.append(f"{atom} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}")
+        return "\n".join(xyz_lines)
+    else:
+        struct.comment = f"Generated from SMILES: {smiles_string}"
+        return struct
 
-        # Format as XYZ string
-        if return_full_xyz_str:
-            xyz_lines = [str(len(atoms))]
-            xyz_lines.append(f"Generated from SMILES: {smiles_string}")
 
-            for atom, coord in zip(atoms, coordinates):
-                if len(coord) != 3:
-                    raise ValueError("Invalid coordinate format - expected 3D coordinates")
-                xyz_lines.append(f"{atom} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}")
-            return "\n".join(xyz_lines)
-
-        else:
-            return atoms, coordinates
-
-    except Exception as e:
-        if isinstance(e, ValueError):
-            raise
-        else:
-            raise RuntimeError(f"Error converting SMILES to XYZ: {str(e)}")
-
-def smiles_to_ensemble(smiles_string: str, num_conformers: int, return_full_xyz_str = False) -> List[str] | List[Tuple[List[str], List[List[float]]]]:
+def smiles_to_ensemble(smiles_string: str, num_conformers: int, return_full_xyz_str: bool = False):
     """Generate a conformational ensemble from a SMILES string.
-
-    This function takes a SMILES string and generates a specified number of
-    conformers using the conformer generation utilities from mol_utils module.
 
     Args:
         smiles_string: A valid SMILES string representing the molecular structure.
         num_conformers: The maximum number of conformers to generate.
+        return_full_xyz_str: If True, returns a list of XYZ format strings for each conformer.
 
     Returns:
-        A list of strings, where each string is a conformer in XYZ format.
-
-    Raises:
-        ValueError: If the SMILES string is invalid, num_conformers is not positive,
-                   or conformer generation fails.
-        RuntimeError: If there are issues with the molecular conversion process.
-
-    Example:
-        >>> conformers = smiles_to_ensemble("CCO", 5)
-        >>> print(len(conformers))
-        5
-        >>> print(conformers[0][:20])
-        9
-        Conformer 1 from SMI...
+        A list of XYZ strings or a list of Structure instances.
     """
     if not smiles_string or not smiles_string.strip():
         raise ValueError("SMILES string cannot be empty or None")
-
     if not isinstance(num_conformers, int) or num_conformers <= 0:
         raise ValueError("num_conformers must be a positive integer")
 
-    try:
-        # Use mol_utils function to generate conformer ensemble
-        conformer_data = smiles_to_conformer_ensemble(smiles_string.strip(), num_conformers)
+    conformers: List[Structure] = _smiles_to_ensemble_util(smiles_string.strip(), num_conformers)
+    if not return_full_xyz_str:
+        for i, s in enumerate(conformers):
+            s.comment = f"Conformer {i+1} from SMILES: {smiles_string}"
+        return conformers
 
-        if not conformer_data:
-            raise ValueError("Failed to generate conformers from SMILES")
+    xyz_conformers: List[str] = []
+    for i, s in enumerate(conformers):
+        xyz_lines = [str(s.n_atoms)]
+        xyz_lines.append(f"Conformer {i+1} from SMILES: {smiles_string}")
+        for atom, coord in zip(s.symbols, s.coordinates):
+            xyz_lines.append(f"{atom} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}")
+        xyz_conformers.append("\n".join(xyz_lines))
 
-        xyz_conformers = []
-
-        if not return_full_xyz_str:
-            return conformer_data
-
-        for i, (atoms, coordinates) in enumerate(conformer_data):
-            if not atoms or not coordinates:
-                continue
-
-            if len(atoms) != len(coordinates):
-                raise ValueError(f"Mismatch between atoms and coordinates in conformer {i+1}")
-
-            # Format each conformer as XYZ string
-            xyz_lines = [str(len(atoms))]
-            xyz_lines.append(f"Conformer {i+1} from SMILES: {smiles_string}")
-
-            for atom, coord in zip(atoms, coordinates):
-                if len(coord) != 3:
-                    raise ValueError(f"Invalid coordinate format in conformer {i+1}")
-                xyz_lines.append(f"{atom} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}")
-
-            xyz_conformers.append("\n".join(xyz_lines))
-
-        if not xyz_conformers:
-            raise ValueError("No valid conformers were generated")
-
-        return xyz_conformers
-
-    except Exception as e:
-        if isinstance(e, ValueError):
-            raise
-        else:
-            raise RuntimeError(f"Error generating conformer ensemble: {str(e)}")
+    return xyz_conformers
 
 
-def save_xyz_file(symbols: List[str], coordinates: List[List[float]], energy: Optional[float], filepath: str, comment: str = "") -> None:
-    """Save molecular structure to XYZ file format.
+def save_xyz_file(structure: Structure, filepath: str) -> None:
+    """Save a single Structure to an XYZ file.
 
     Args:
-        symbols: List of atomic symbols (e.g., ['C', 'H', 'H', 'H']).
-        coordinates: List of atomic coordinates [[x1,y1,z1], [x2,y2,z2], ...].
-        energy: Energy of the structure in eV, or None if not available.
+        structure: Structure to save. Uses structure.energy in comment if set.
         filepath: Output file path for the XYZ file.
-        comment: Optional comment line for the XYZ file.
-
-    Raises:
-        ValueError: If symbols and coordinates lengths don't match or are empty.
-        OSError: If file cannot be written to specified path.
-
-    Note:
-        Creates parent directories if they don't exist.
     """
-    if not any(symbols) or not any(coordinates):
+    if not structure or structure.n_atoms == 0:
         raise ValueError("Cannot save empty structure")
 
-    if len(symbols) != len(coordinates):
-        raise ValueError(f"Number of symbols ({len(symbols)}) must match number of coordinates ({len(coordinates)})")
-
     # Validate coordinates format
-    for i, coord in enumerate(coordinates):
+    for i, coord in enumerate(structure.coordinates):
         if len(coord) != 3:
             raise ValueError(f"Coordinate {i} must have exactly 3 components (x, y, z)")
 
-    # Create parent directory if it doesn't exist
-    import os
     os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
 
-    try:
-        with open(filepath, 'w') as f:
-            f.write(f"{len(symbols)}\n")
-            # Format energy in comment line if available
-            if energy is not None:
-                f.write(f"{comment} | Energy: {energy:.6f} eV\n")
-            else:
-                f.write(f"{comment}\n")
-
-            for symbol, coord in zip(symbols, coordinates):
-                f.write(f"{symbol} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}\n")
-    except OSError as e:
-        raise OSError(f"Cannot write to file {filepath}: {e}") from e
+    with open(filepath, 'w') as f:
+        f.write(f"{structure.n_atoms}\n")
+        if structure.energy is not None:
+            f.write(f"{structure.comment} | Energy: {structure.energy:.6f} eV\n")
+        else:
+            f.write(f"{structure.comment}\n")
+        for symbol, coord in zip(structure.symbols, structure.coordinates):
+            f.write(f"{symbol} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}\n")
 
 
-def save_multi_xyz(structures: List[Tuple[List[str], List[List[float]], float]], filepath: str, comments: Optional[List[str]] = None) -> None:
-    """Save multiple molecular structures to a single multi-XYZ file.
+def save_multi_xyz(structures: List[Structure], filepath: str, comments: Optional[List[str]] = None) -> None:
+    """Save multiple structures to a single multi-XYZ file.
 
     Args:
-        structures: List of (symbols, coordinates, energy) tuples.
+        structures: List of Structure objects. Energy is optional.
         filepath: Output file path for the multi-XYZ file.
         comments: Optional list of comments, one for each structure.
-
-    Raises:
-        ValueError: If structures list is empty or contains invalid data.
-        OSError: If file cannot be written to specified path.
-
-    Note:
-        If comments list is shorter than structures list, remaining structures
-        get generic "Structure N" comments. Creates parent directories if needed.
     """
     if not structures:
         raise ValueError("Cannot save empty structure list")
 
-    # Validate all structures
-    for i, structure in enumerate(structures):
-        if len(structure) != 3:
-            raise ValueError(f"Structure {i} must be a tuple of (symbols, coordinates, energy)")
-        symbols, coordinates, energy = structure
-        if len(symbols) != len(coordinates):
-            raise ValueError(f"Structure {i}: symbols/coordinates length mismatch")
-
-    # Create parent directory if it doesn't exist
-    import os
     os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
 
-    try:
-        with open(filepath, 'w') as f:
-            for i, (symbols, coordinates, energy) in enumerate(structures):
-                comment = comments[i] if comments and i < len(comments) else f"Structure {i+1}"
-                f.write(f"{len(symbols)}\n")
-                f.write(f"{comment} | Energy: {energy:.6f} eV\n")
-                for symbol, coord in zip(symbols, coordinates):
-                    f.write(f"{symbol} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}\n")
-    except OSError as e:
-        raise OSError(f"Cannot write to file {filepath}: {e}") from e
+    with open(filepath, 'w') as f:
+        for i, s in enumerate(structures):
+            if s.n_atoms != len(s.coordinates):
+                raise ValueError(f"Structure {i}: symbols/coordinates length mismatch")
+            comment = comments[i] if comments and i < len(comments) else (s.comment or f"Structure {i+1}")
+            f.write(f"{s.n_atoms}\n")
+            if s.energy is not None:
+                f.write(f"{comment} | Energy: {s.energy:.6f} eV\n")
+            else:
+                f.write(f"{comment}\n")
+            for symbol, coord in zip(s.symbols, s.coordinates):
+                f.write(f"{symbol} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}\n")

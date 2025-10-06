@@ -1,0 +1,14 @@
+optimization:
+  batch_optimization_mode: batch
+  batch_optimizer: fire
+  max_num_conformers: 20
+  conformer_seed: 42
+
+  model_name: uma-s-1p1
+  model_path: null
+  device: cuda
+  huggingface_token: null
+  huggingface_token_file: /home/employee/n_hoel07/hf_secret
+
+  verbose: true
+

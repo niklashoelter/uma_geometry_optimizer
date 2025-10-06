@@ -31,7 +31,8 @@ dependencies = [
   "morfeus-ml>=0.7",
   "rdkit>=2022.9.5",
   "fairchem-core>=2.7.1",
-  "tables>=3.10.2"
+  "tables>=3.10.2",
+  "hf_xet"
 ]
 
 [project.optional-dependencies]

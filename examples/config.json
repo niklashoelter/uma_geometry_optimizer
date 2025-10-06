@@ -2,7 +2,7 @@
   "optimization": {
 
     "batch_optimization_mode": "batch",
-    'batch_optimizer': 'fire',
+    "batch_optimizer": "fire",
     "max_num_conformers": 20,
     "conformer_seed": 42,
 

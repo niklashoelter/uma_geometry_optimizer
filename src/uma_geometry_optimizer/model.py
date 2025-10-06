@@ -61,8 +61,12 @@ def load_model(config: Config) -> 'FAIRChemCalculator':
 
     # Create and validate model cache directory
     try:
-        model_dir = os.path.abspath(opt_config.model_path)
-        os.makedirs(model_dir, exist_ok=True)
+        model_dir = opt_config.model_path
+        if model_dir is not None:
+            os.makedirs(model_dir, exist_ok=True)
+        else :
+            model_dir = os.path.join(os.path.expanduser("~"), ".cache", "fairchem")
+            os.makedirs(model_dir, exist_ok=True)
         if opt_config.verbose:
             print(f"Using model cache directory: {model_dir}")
     except OSError as e:
