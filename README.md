@@ -18,9 +18,10 @@ pip install -e .
 
 Dependencies (installed automatically):
 - numpy, ase, torch (>=2)
-- torch-sim (PyPI package name: torch_sim_atomistic)
-- morfeus-ml, rdkit
 - fairchem-core
+- torch-sim (0.3.0 or later for fairchem support)
+- rdkit
+- morfeus (for conformer generation)
 - optional: pyyaml (if you use YAML configs)
 
 Note: Some ML/simulation dependencies (torch, rdkit, fairchem) provide OS- and GPU-specific wheels. Please consult project-specific installation notes as needed.
