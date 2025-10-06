@@ -27,11 +27,12 @@ dependencies = [
   "numpy>=2.0,<2.3",
   "ase>=3.24",
   "torch>=2",
-  "torch_sim_atomistic>=0.3.1",
+  "torch_sim_atomistic>=0.3.0",
   "morfeus-ml>=0.7",
   "rdkit>=2022.9.5",
   "fairchem-core>=2.7.1",
-  "tables>=3.10.2"
+  "tables>=3.10.2",
+  "hf_xet"
 ]
 
 [project.optional-dependencies]
