@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 @dataclass
@@ -13,11 +13,11 @@ class Structure:
         comment: Optional comment/metadata string.
     """
     symbols: List[str]
-    coordinates: List[List[float]]
+    coordinates: List[Tuple[float, float, float]]
+    charge: int
+    multiplicity: int
     energy: Optional[float] = None
     comment: str = ""
-    charge: int = 0
-    multiplicity: int = 1
 
     # room for future metadata without breaking API
     metadata: dict = field(default_factory=dict)
@@ -29,4 +29,3 @@ class Structure:
     def with_energy(self, energy: Optional[float]) -> "Structure":
         self.energy = energy
         return self
-

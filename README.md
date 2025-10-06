@@ -2,7 +2,7 @@
 
 A minimalist toolkit for molecular geometry optimization using fairchem UMA models and torch-sim. Includes a simple python API and a CLI.
 
-In principle, this software can operate in two different modes:
+In principle, this software can operate in different modes:
 1. **Single structure optimization**: Optimize a single molecular structure (from SMILES or XYZ) using ASE and a UMA calculator.
 2. **Conformer ensemble generation & optimization**: Generate a conformer ensemble from SMILES (using Morfeus) and optimize it using either ASE (sequentially) or torch-sim (batched).
 3. **Batch optimization**: Optimize arbitrary, multiple structures from a multi-XYZ file or a directory of XYZ files, either sequentially (ASE) or in batch mode (torch-sim).

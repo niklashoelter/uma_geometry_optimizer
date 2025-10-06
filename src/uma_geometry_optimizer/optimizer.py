@@ -3,21 +3,18 @@
 This module contains optimization logic for single structures and
 batches of structures (e.g., conformer ensembles).
 """
-import logging
-from pathlib import Path
 from typing import List, Tuple, Optional, TYPE_CHECKING
 
-import numpy as np
 import torch_sim
 from ase import Atoms
 from ase.optimize import BFGS
 
 from .config import Config, load_config_from_file
-from .model import load_model
+from .models import load_model_fairchem, load_model_torchsim, _check_device
 from .decorators import time_it
 from .structure import Structure
 
-if TYPE_CHECKING:  # only for type hints, avoids runtime import of fairchem
+if TYPE_CHECKING:
     from fairchem.core import FAIRChemCalculator
 
 
@@ -41,25 +38,11 @@ def optimize_single_structure(
     charge = structure.charge
     multiplicity = structure.multiplicity
 
-    # Input validation, numpy conversion and checks
-    if len(symbols) != len(coordinates):
-        raise ValueError(f"Number of symbols ({len(symbols)}) must match number of coordinates ({len(coordinates)})")
-    if len(symbols) == 0:
-        raise ValueError("Cannot optimize empty structure")
     try:
-        coords_array = np.array(coordinates, dtype=float)
-        if coords_array.shape[1] != 3:
-            raise ValueError("Each coordinate must have exactly 3 components (x, y, z)")
-    except (ValueError, IndexError) as e:
-        raise ValueError(f"Invalid coordinate format: {e}")
-
-    try:
-        # Load the Fairchem model from model.py
         if not calculator:
-            calculator = load_model(config)
+            calculator = load_model_fairchem(config)
 
-        # Create ASE Atoms object
-        atoms = Atoms(symbols=symbols, positions=coords_array.tolist())
+        atoms = Atoms(symbols=symbols, positions=coordinates)
         atoms.calc = calculator
         atoms.info = {'charge': charge, 'spin': multiplicity}
 
@@ -71,11 +54,9 @@ def optimize_single_structure(
         if opt_config.verbose:
             print(f"Optimization completed after {optimizer.get_number_of_steps()} steps")
 
-        # Extract optimized coordinates
         optimized_coords = atoms.get_positions().tolist()
         potential_energy = atoms.get_potential_energy()
 
-        # Return updated Structure
         structure.coordinates = optimized_coords
         structure.energy = float(potential_energy)
         return structure
@@ -100,14 +81,15 @@ def optimize_structure_batch(
     if not structures:
         return []
 
-    # Basic validation: all structures must be and non-empty
     for i, s in enumerate(structures):
         if s.n_atoms != len(s.coordinates):
             raise ValueError(f"Structure {i}: symbols/coords length mismatch")
         if s.n_atoms == 0:
             raise ValueError(f"Structure {i}: empty structure")
 
-    force_cpu = not config.optimization.device.lower().__contains__("cuda")
+    device = _check_device(config.optimization.device)
+    force_cpu = device == "cpu"
+
     print(f"Optimization device: {'CPU' if force_cpu else 'GPU'}")
     mode = config.optimization.batch_optimization_mode.lower()
     if mode == "sequential" or force_cpu:
@@ -126,7 +108,7 @@ def _optimize_batch_sequential(
     config,
 ) -> List[Structure]:
     """Optimize structures sequentially using single geometry optimization."""
-    calculator = load_model(config)
+    calculator = load_model_fairchem(config)
     opt_config = config.optimization
 
     optimized_results: List[Structure] = []
@@ -154,61 +136,34 @@ def _optimize_batch_structures(
     config,
 ) -> List[Structure]:
     """Optimize structures in batches using Fairchem's batch prediction."""
-
-    # Defer heavy imports to runtime to avoid import-time dependency failures
     import torch
     import torch_sim as torchsim
-    from torch_sim.models.fairchem import FairChemModel
     from torch_sim.optimizers import gradient_descent, fire
     from torch_sim.autobatching import InFlightAutoBatcher
 
     opt_config = config.optimization
-    force_cpu = not opt_config.device.lower().__contains__("cuda")
+    device = _check_device(opt_config.device)
 
-    model = None
-    model_path = Path(opt_config.model_path) if opt_config.model_path else None
-    model_name = opt_config.model_name if opt_config.model_name else None
-    if model_path:
-        if not model_path.exists():
-            logging.error(f"Specified model_path does not exist: {model_path}")
-            logging.error("Falling back to default model 'uma-s-1p1")
-            model_name = "uma-s-1p1"
-        else:
-            try:
-                model = FairChemModel(model=model_path, cpu=force_cpu, task_name="omol")
-            except:
-                logging.error(f"Failed to load model from path: {model_path}")
-                logging.error("Falling back to default model 'uma-s-1p1'")
-                model_name = "uma-s-1p1"
-                model_path = None
-
-    if model_name is None and model_path is None:
-        logging.error("No model_name or model_path specified in config, defaulting to 'uma-s-1p1' and './models'")
-        model_name = "uma-s-1p1"
-
-    print(f"Loading model '{model_name}' from '{model_path or './models'}' on {'CPU' if force_cpu else 'GPU'}")
-    if not model: model = FairChemModel(model=model_path, model_name=model_name, cpu=force_cpu, task_name="omol")
+    model = load_model_torchsim(config)
 
     optimizer_name = getattr(opt_config, 'batch_optimizer', 'fire') or 'fire'
     optimizer_name = str(optimizer_name).strip().lower()
     optimizer_fn = fire if optimizer_name == 'fire' else gradient_descent
-
     convergence_fn = torch_sim.generate_energy_convergence_fn(energy_tol=1e-6)
 
-    # Ensure positions are sequences of tuples for type checkers and ASE
     ase_structures = [
         Atoms(symbols=s.symbols,
               positions=[tuple(c) for c in s.coordinates],
               info={'charge': s.charge, 'spin': s.multiplicity}
         ) for s in structures
     ]
-    batched_state = torchsim.io.atoms_to_state(ase_structures, device=opt_config.device, dtype=torch.float32)
+    batched_state = torchsim.io.atoms_to_state(ase_structures, device=device, dtype=torch.float32)
 
     batcher = InFlightAutoBatcher(
         model,
         memory_scales_with="n_atoms",
         max_memory_padding=0.95,
-        max_atoms_to_try=len(structures) * 3, # todo this is not the number of atoms!! there is a current bug in torchsim
+        max_atoms_to_try=len(structures) * 3,
     )
 
     final_state = torch_sim.runners.optimize(
@@ -221,25 +176,13 @@ def _optimize_batch_structures(
     )
 
     final_atoms = final_state.to_atoms()
-
     results: List[Structure] = []
     for i, atoms in enumerate(final_atoms):
         s = Structure(
             symbols=atoms.get_chemical_symbols(),
             coordinates=atoms.get_positions().tolist(),
             energy=float(final_state.energy[i].item()),
-            comment=f"Optimized with model {model_name} in batch mode",
+            comment=f"Optimized with model {getattr(model, 'model_name', None) or ''} in batch mode",
         )
         results.append(s)
     return results
-
-
-def optimize_conformer_ensemble(
-    conformers: List[Tuple[List[str], List[List[float]]]],
-    config: Optional[Config] = None,
-) -> List[Tuple[List[str], List[List[float]], float]]:
-    """Backward-compatible wrapper for optimizing conformer ensembles using tuples."""
-    structures = [Structure(symbols=s, coordinates=c) for (s, c) in conformers]
-    optimized = optimize_structure_batch(structures, config)
-    return [(s.symbols, s.coordinates, float(s.energy) if s.energy is not None else 0.0) for s in optimized]
-

@@ -28,7 +28,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "model_path": None,
         "device": default_device,
         "huggingface_token": None,
-        "huggingface_token_file": "/home/employee/n_hoel07/hf_secret",
+        "huggingface_token_file": None,
 
         "verbose": True,
     }
@@ -127,11 +127,6 @@ class Config:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Config":
         return cls(data)
-
-
-# Backward-compat: expose a symbol named OptimizationConfig
-class OptimizationConfig(_Section):
-    pass
 
 
 def load_config_from_file(filepath: str = "config.json") -> Config:

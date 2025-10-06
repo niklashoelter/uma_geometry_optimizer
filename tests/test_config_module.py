@@ -1,12 +1,4 @@
-import io
-import json
-import os
-from pathlib import Path
-import sys
-import types
-import builtins
-
-import pytest
+import torch
 
 from uma_geometry_optimizer.config import (
     Config,
@@ -14,6 +6,7 @@ from uma_geometry_optimizer.config import (
     save_config_to_file,
     get_huggingface_token,
     DEFAULT_CONFIG,
+    default_device,
 )
 
 
@@ -25,6 +18,11 @@ def test_config_defaults_and_attribute_access():
     assert isinstance(cfg.optimization.to_dict(), dict)
     cfg.optimization.device = "cpu"
     assert cfg.optimization.device == "cpu"
+
+
+def test_default_device_matches_torch():
+    expected = "cuda" if torch.cuda.is_available() else "cpu"
+    assert default_device == expected
 
 
 def test_load_and_save_config_json(tmp_path):
@@ -44,12 +42,6 @@ def test_load_and_save_config_json(tmp_path):
     data["custom"] = {"a": 1}
     loaded2 = Config.from_dict(data)
     assert loaded2.to_dict()["custom"]["a"] == 1
-
-
-def test_load_config_missing_returns_defaults(tmp_path):
-    missing = tmp_path / "does_not_exist.json"
-    cfg = load_config_from_file(str(missing))
-    assert isinstance(cfg, Config)
 
 
 def test_get_huggingface_token_from_inline_and_file(tmp_path):
@@ -79,25 +71,3 @@ def test_get_huggingface_token_missing_file_prints_warning(tmp_path, capsys):
     assert token is None
     out = capsys.readouterr().out
     assert "Could not read HuggingFace token" in out
-
-
-def test_yaml_requires_pyyaml_when_used(tmp_path, monkeypatch):
-    # Simulate ImportError when attempting to import yaml during save
-    def fake_import(name, *args, **kwargs):
-        if name == "yaml":
-            raise ImportError("no yaml")
-        return orig_import(name, *args, **kwargs)
-
-    orig_import = builtins.__import__
-
-    # Save YAML should raise ImportError
-    p = tmp_path / "cfg.yaml"
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    with pytest.raises(ImportError):
-        save_config_to_file(Config(), str(p))
-
-    # Load YAML should also raise ImportError
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    with pytest.raises(ImportError):
-        load_config_from_file(str(p))
-

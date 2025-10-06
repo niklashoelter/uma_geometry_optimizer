@@ -6,18 +6,20 @@ and converting between different representations.
 
 import os
 import glob
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 from .structure import Structure
 from .mol_utils import smiles_to_structure as _smiles_to_structure_util, smiles_to_conformer_ensemble as _smiles_to_ensemble_util
 
 
-def read_xyz(file_path: str) -> Structure:
+def read_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Structure:
     """Read an XYZ file and return a Structure.
 
     Args:
         file_path: Path to the XYZ file to read.
-        
+        charge: Optional total charge to set on the structure (default: 0).
+        multiplicity: Optional spin multiplicity to set (default: 1).
+
     Returns:
         Structure object with symbols, coordinates, and optional comment/energy.
 
@@ -29,7 +31,7 @@ def read_xyz(file_path: str) -> Structure:
         raise FileNotFoundError(f"File {file_path} not found")
 
     symbols: List[str] = []
-    coordinates: List[List[float]] = []
+    coordinates: List[Tuple[float, float, float]] = []
     comment = ""
     energy: Optional[float] = None
 
@@ -37,21 +39,17 @@ def read_xyz(file_path: str) -> Structure:
         with open(file_path, 'r') as f:
             lines = [line.rstrip('\n') for line in f.readlines()]
 
-        # First line should contain the number of atoms
         try:
             num_atoms = int(lines[0])
         except Exception:
             raise ValueError("First line must contain the number of atoms as an integer")
 
-        # Comment line
         if len(lines) < 2 + num_atoms:
             raise ValueError(f"Expected {num_atoms} atom lines, but found {max(0, len(lines)-2)}")
         comment = lines[1] if len(lines) > 1 else ""
 
-        # Try parse energy from comment if present
         if "Energy:" in comment:
             try:
-                # e.g., "... | Energy: -12.345 eV"
                 after = comment.split("Energy:", 1)[1].strip()
                 val = after.split()[0]
                 energy = float(val)
@@ -68,7 +66,7 @@ def read_xyz(file_path: str) -> Structure:
             except ValueError:
                 raise ValueError(f"Invalid coordinates in line {i+3}: {parts[1:4]}")
             symbols.append(symbol)
-            coordinates.append([x, y, z])
+            coordinates.append((x, y, z))
 
     except Exception as e:
         if isinstance(e, (FileNotFoundError, ValueError)):
@@ -76,14 +74,16 @@ def read_xyz(file_path: str) -> Structure:
         else:
             raise ValueError(f"Error reading XYZ file: {str(e)}")
 
-    return Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment)
+    return Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment, charge=charge, multiplicity=multiplicity)
 
 
-def read_multi_xyz(file_path: str) -> List[Structure]:
+def read_multi_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> List[Structure]:
     """Read an XYZ file containing multiple structures.
 
     Args:
         file_path: Path to the multi-structure XYZ file.
+        charge: Optional total charge to set on all returned structures (default: 0).
+        multiplicity: Optional spin multiplicity to set (default: 1).
 
     Returns:
         List of Structure objects.
@@ -103,23 +103,19 @@ def read_multi_xyz(file_path: str) -> List[Structure]:
 
         i = 0
         while i < len(lines):
-            # Skip empty lines
             if lines[i].strip() == '':
                 i += 1
                 continue
 
-            # Try to parse number of atoms
             try:
                 num_atoms = int(lines[i].strip())
             except ValueError:
                 i += 1
                 continue
 
-            # Ensure enough lines remain (including comment)
             if i + 1 + num_atoms >= len(lines):
                 break
 
-            # Comment line at i+1 (may be empty)
             comment = lines[i + 1] if (i + 1) < len(lines) else ""
             energy: Optional[float] = None
             if "Energy:" in comment:
@@ -131,7 +127,7 @@ def read_multi_xyz(file_path: str) -> List[Structure]:
                     energy = None
 
             symbols: List[str] = []
-            coordinates: List[List[float]] = []
+            coordinates: List[Tuple[float, float, float]] = []
 
             valid = True
             for j in range(num_atoms):
@@ -146,10 +142,10 @@ def read_multi_xyz(file_path: str) -> List[Structure]:
                     valid = False
                     break
                 symbols.append(symbol)
-                coordinates.append([x, y, z])
+                coordinates.append((x, y, z))
 
             if valid and len(symbols) == num_atoms:
-                structures.append(Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment))
+                structures.append(Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment, charge=charge, multiplicity=multiplicity))
 
             i = i + 2 + num_atoms
 
@@ -159,11 +155,13 @@ def read_multi_xyz(file_path: str) -> List[Structure]:
     return structures
 
 
-def read_xyz_directory(directory_path: str) -> List[Structure]:
+def read_xyz_directory(directory_path: str, charge: int = 0, multiplicity: int = 1) -> List[Structure]:
     """Read all XYZ files from a directory.
 
     Args:
         directory_path: Path to directory containing XYZ files.
+        charge: Optional total charge to set on all returned structures (default: 0).
+        multiplicity: Optional spin multiplicity to set (default: 1).
 
     Returns:
         List of structures from all XYZ files in the directory.
@@ -184,7 +182,7 @@ def read_xyz_directory(directory_path: str) -> List[Structure]:
 
     for xyz_file in xyz_files:
         try:
-            structures.append(read_xyz(xyz_file))
+            structures.append(read_xyz(xyz_file, charge=charge, multiplicity=multiplicity))
         except Exception as e:
             print(f"Warning: Failed to read {xyz_file}: {e}")
 
@@ -263,7 +261,6 @@ def save_xyz_file(structure: Structure, filepath: str) -> None:
     if not structure or structure.n_atoms == 0:
         raise ValueError("Cannot save empty structure")
 
-    # Validate coordinates format
     for i, coord in enumerate(structure.coordinates):
         if len(coord) != 3:
             raise ValueError(f"Coordinate {i} must have exactly 3 components (x, y, z)")

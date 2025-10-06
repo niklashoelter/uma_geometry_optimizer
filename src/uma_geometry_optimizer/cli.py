@@ -41,9 +41,6 @@ from .io_handler import (
     save_xyz_file, save_multi_xyz
 )
 
-# Note: Optimizer functions are imported locally inside the command handlers
-# so that `--help` works without heavy dependencies being installed.
-
 
 def setup_parser() -> argparse.ArgumentParser:
     """Set up the command line argument parser.
@@ -133,6 +130,14 @@ CONFIGURATION:
         help='Path to XYZ file containing the structure to optimize'
     )
     optimize_parser.add_argument(
+        '--charge', type=int, default=0,
+        help='Total charge for XYZ input (ignored for SMILES). Default: 0'
+    )
+    optimize_parser.add_argument(
+        '--multiplicity', type=int, default=1,
+        help='Spin multiplicity for XYZ input (ignored for SMILES). Default: 1'
+    )
+    optimize_parser.add_argument(
         '--output', '-o', type=str, required=True,
         help='Output XYZ file path for optimized structure'
     )
@@ -197,6 +202,14 @@ CONFIGURATION:
     batch_input.add_argument(
         '--xyz-dir', type=str,
         help='Directory containing XYZ files of structures to optimize'
+    )
+    batch_parser.add_argument(
+        '--charge', type=int, default=0,
+        help='Total charge for XYZ inputs. Default: 0'
+    )
+    batch_parser.add_argument(
+        '--multiplicity', type=int, default=1,
+        help='Spin multiplicity for XYZ inputs. Default: 1'
     )
     batch_parser.add_argument(
         '--output', '-o', type=str, required=True,
@@ -294,7 +307,7 @@ def cmd_optimize(args, config: Config):
         else:
             if config.optimization.verbose:
                 print(f"Reading structure from {args.xyz}")
-            structure = read_xyz(args.xyz)
+            structure = read_xyz(args.xyz, charge=args.charge, multiplicity=args.multiplicity)
             structure.comment = f"Optimized from: {args.xyz}"
 
         if config.optimization.verbose:
@@ -361,11 +374,11 @@ def cmd_batch(args, config: Config):
         if args.multi_xyz:
             if config.optimization.verbose:
                 print(f"Reading structures from multi-XYZ file: {args.multi_xyz}")
-            structures = read_multi_xyz(args.multi_xyz)
+            structures = read_multi_xyz(args.multi_xyz, charge=args.charge, multiplicity=args.multiplicity)
         else:
             if config.optimization.verbose:
                 print(f"Reading structures from directory: {args.xyz_dir}")
-            structures = read_xyz_directory(args.xyz_dir)
+            structures = read_xyz_directory(args.xyz_dir, charge=args.charge, multiplicity=args.multiplicity)
 
         if not structures:
             print("Error: No structures found")

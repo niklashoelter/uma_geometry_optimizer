@@ -12,9 +12,9 @@ that is actually implemented and tested.
 
 from .structure import Structure
 from .io_handler import read_xyz, read_multi_xyz, read_xyz_directory, smiles_to_xyz, smiles_to_ensemble, save_xyz_file, save_multi_xyz
-from .optimizer import optimize_single_structure, optimize_structure_batch, optimize_conformer_ensemble
-from .model import load_model
-from .config import Config, OptimizationConfig, default_config, load_config_from_file, save_config_to_file
+from .optimizer import optimize_single_structure, optimize_structure_batch
+from .models import load_model_fairchem, load_model_torchsim
+from .config import Config, default_config, load_config_from_file, save_config_to_file
 from .decorators import time_it
 
 # Convenience functions for common workflows
@@ -29,7 +29,7 @@ def optimize_single_smiles(smiles: str, output_file: str = None, config: Config 
     Returns:
         Structure: The optimized molecular structure.
     """
-    structure = smiles_to_xyz(smiles)  # returns Structure
+    structure = smiles_to_xyz(smiles)  # returns Structure with auto charge/multiplicity
     if not isinstance(structure, Structure):
         raise ValueError("smiles_to_xyz did not return a Structure")
     structure.comment = f"Optimized from SMILES: {smiles}"
@@ -40,18 +40,20 @@ def optimize_single_smiles(smiles: str, output_file: str = None, config: Config 
 
     return result
 
-def optimize_single_xyz_file(input_file: str, output_file: str = None, config: Config = None) -> Structure:
+def optimize_single_xyz_file(input_file: str, output_file: str = None, config: Config = None, charge: int = 0, multiplicity: int = 1) -> Structure:
     """Convenient function to optimize a molecule from XYZ file.
 
     Args:
         input_file: Path to input XYZ file.
         output_file: Optional output XYZ file path.
         config: Optional configuration object.
+        charge: Optional total charge for the system (default 0).
+        multiplicity: Optional spin multiplicity (default 1).
 
     Returns:
         Structure: The optimized molecular structure.
     """
-    structure = read_xyz(input_file)
+    structure = read_xyz(input_file, charge=charge, multiplicity=multiplicity)
     structure.comment = f"Optimized from: {input_file}"
     result = optimize_single_structure(structure, config)
 
@@ -103,9 +105,6 @@ __all__ = [
     # Optimization functions
     "optimize_single_structure",
     "optimize_structure_batch",
-    # Backward-compatible wrappers
-    "optimize_single_geometry",
-    "optimize_conformer_ensemble",
 
     # Convenience functions
     "optimize_single_smiles",
@@ -113,11 +112,11 @@ __all__ = [
     "optimize_smiles_ensemble",
 
     # Model functions
-    "load_model",
+    "load_model_torchsim",
+    "load_model_fairchem",
 
     # Configuration
     "Config",
-    "OptimizationConfig",
     "default_config",
     "load_config_from_file",
     "save_config_to_file",

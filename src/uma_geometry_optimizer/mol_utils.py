@@ -4,7 +4,7 @@ This module provides functions for converting SMILES strings to 3D molecular
 structures and generating conformer ensembles using the morfeus library with RDKit.
 """
 
-from typing import List
+from typing import List, Tuple
 from numbers import Integral
 from .decorators import time_it
 from .structure import Structure
@@ -16,11 +16,9 @@ def _to_symbol_list(elements) -> List[str]:
     Accepts element symbols as strings or atomic numbers (ints); converts to
     a list of string symbols. Also supports numpy arrays transparently.
     """
-    # Lazy import to avoid import-time dependency failures
     from ase.data import chemical_symbols
 
     try:
-        # Convert numpy arrays to Python lists
         if hasattr(elements, "tolist"):
             elements = elements.tolist()
     except Exception:
@@ -31,26 +29,25 @@ def _to_symbol_list(elements) -> List[str]:
         if isinstance(e, str):
             symbols.append(e)
         elif isinstance(e, Integral):
-            # Map atomic number to symbol; guard range
             try:
                 symbols.append(chemical_symbols[int(e)])
             except Exception:
                 raise ValueError(f"Invalid atomic number: {e}")
         else:
-            # Fallback: try string conversion
             symbols.append(str(e))
     return symbols
 
 
-def _to_coord_list(coords) -> List[List[float]]:
-    """Convert coordinates to a nested Python list of floats."""
+def _to_coord_list(coords) -> List[Tuple[float, float, float]]:
+    """Convert coordinates to a nested Python list of float tuples."""
     try:
         if hasattr(coords, "tolist"):
-            return coords.tolist()
+            coords = coords.tolist()
     except Exception:
         pass
-    # Ensure nested list of lists
-    return [[float(c) for c in row] for row in coords]
+    return [(
+        float(row[0]), float(row[1]), float(row[2])
+    ) for row in coords]
 
 @time_it
 def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[Structure]:
@@ -82,27 +79,22 @@ def smiles_to_conformer_ensemble(smiles: str, max_num_confs: int = 10) -> List[S
         raise ValueError("max_num_confs must be positive")
 
     try:
-        # Lazy import to avoid import-time dependency failures
         from morfeus.conformer import ConformerEnsemble  # type: ignore
 
-        # Generate conformer ensemble using morfeus
         ensemble = ConformerEnsemble.from_rdkit(smiles.strip())
         ensemble.prune_rmsd()
         ensemble.sort()
 
-        # Extract conformers up to the requested maximum
         structures: List[Structure] = []
         for i, conformer in enumerate(ensemble):
             if i >= max_num_confs:
                 break
 
-            # morfeus may return atomic numbers as numpy arrays; normalize
             atoms = _to_symbol_list(getattr(conformer, "elements", []))
             coordinates = _to_coord_list(getattr(conformer, "coordinates", []))
 
-            # Validate data consistency
             if len(atoms) != len(coordinates):
-                continue  # Skip invalid structures
+                continue
 
             structures.append(Structure(symbols=atoms, coordinates=coordinates, charge=ensemble.charge, multiplicity=ensemble.multiplicity))
 
@@ -145,13 +137,12 @@ def smiles_to_structure(smiles: str) -> Structure:
         raise ValueError("SMILES string cannot be empty")
 
     try:
-        # Generate ensemble and take the first (lowest energy) conformer
         ensemble = smiles_to_conformer_ensemble(smiles.strip(), max_num_confs=1)
 
         if not ensemble:
             raise ValueError("No conformers generated from SMILES")
 
-        return ensemble[0]  # Return first conformer (lowest energy)
+        return ensemble[0]
 
     except Exception as e:
         if isinstance(e, (ValueError, ImportError)):
