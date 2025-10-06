@@ -141,6 +141,25 @@ CONFIGURATION:
         help='Configuration file path (default: config.json if exists)'
     )
 
+    # 'smiles' alias for single-structure optimization from SMILES only
+    smiles_parser = subparsers.add_parser(
+        'smiles',
+        help='Optimize a single structure from a SMILES string',
+        description='Shorthand for optimizing a single structure directly from a SMILES string.'
+    )
+    smiles_parser.add_argument(
+        '--smiles', type=str, required=True,
+        help='SMILES string of the molecule to optimize'
+    )
+    smiles_parser.add_argument(
+        '--output', '-o', type=str, required=True,
+        help='Output XYZ file path for optimized structure'
+    )
+    smiles_parser.add_argument(
+        '--config', '-c', type=str,
+        help='Configuration file path (default: config.json if exists)'
+    )
+
     # Ensemble optimization (conformers of same molecule from SMILES)
     ensemble_parser = subparsers.add_parser(
         'ensemble',
@@ -462,6 +481,8 @@ def main():
     # Route to appropriate command handler
     try:
         if args.command == 'optimize':
+            cmd_optimize(args, config)
+        elif args.command == 'smiles':
             cmd_optimize(args, config)
         elif args.command == 'ensemble':
             cmd_ensemble(args, config)
