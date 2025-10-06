@@ -108,24 +108,6 @@ def _make_fake_torch_sim_module():
     return mod
 
 
-def _install_fake_numpy():
-    if "numpy" in sys.modules:
-        return
-    class _Array:
-        def __init__(self, data):
-            # ensure nested list of lists
-            self._data = [list(row) for row in data]
-            # attempt to ensure 2D
-            self.shape = (len(self._data), len(self._data[0]) if self._data else 0)
-        def tolist(self):
-            return [list(row) for row in self._data]
-    np = types.ModuleType("numpy")
-    def array(data, dtype=None):
-        # simple validation
-        return _Array(data)
-    np.array = array
-    sys.modules["numpy"] = np
-
 # Pre-install fakes so imports during test collection succeed
 if "ase" not in sys.modules:
     sys.modules["ase"] = _make_fake_ase_module()
@@ -133,11 +115,7 @@ if "ase" not in sys.modules:
     sys.modules["ase.data"] = sys.modules["ase"].data
 if "torch_sim" not in sys.modules:
     sys.modules["torch_sim"] = _make_fake_torch_sim_module()
-if "torch" not in sys.modules:
-    torch = types.ModuleType("torch")
-    torch.float32 = object()
-    sys.modules["torch"] = torch
-_install_fake_numpy()
+# Do NOT stub torch or numpy; use the real installed libraries
 
 
 @pytest.fixture(autouse=True)
