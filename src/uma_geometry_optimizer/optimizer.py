@@ -230,6 +230,7 @@ def _optimize_batch_structures(
             energy=float(final_state.energy[i].item()),
             comment=f"Optimized with model {model_name} in batch mode",
         )
+        results.append(s)
     return results
 
 

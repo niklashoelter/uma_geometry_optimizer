@@ -8,7 +8,7 @@
 
     "model_name": "uma-s-1p1",
     "model_path": null,
-    "device": "cpu",
+    "device": "cuda",
     "huggingface_token": null,
     "huggingface_token_file": "/home/employee/n_hoel07/hf_secret",
 

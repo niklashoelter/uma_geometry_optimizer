@@ -114,7 +114,7 @@ def example_ensemble_with_config():
     config.optimization.batch_optimization_mode = "batch"
     config.optimization.max_num_conformers = 3
 
-    smiles = "c1ccccc1"  # Benzene
+    smiles = "c1ccccc1"
     print(f"Optimizing {smiles} ensemble with custom config...")
 
     # Generate conformers with custom count from config
