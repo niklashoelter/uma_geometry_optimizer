@@ -14,7 +14,7 @@ import os
 import torch
 from typing import Any, Dict, Optional
 
-default_device = "cuda" if torch.cuda.is_available else "cpu"
+default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Default configuration aligned with examples/config.json
 DEFAULT_CONFIG: Dict[str, Any] = {
