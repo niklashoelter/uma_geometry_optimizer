@@ -17,15 +17,18 @@ def example_ensemble_from_smiles():
     """Example 1: Generate and optimize conformer ensemble from SMILES."""
     print("=== Example 1: Ensemble optimization from SMILES ===")
 
-    smiles = "CC([C@@H]1[C@H](C[C@@H](N2C3=C(C=CC=C3C(C)C)C(C)C)[C@H](N(C2=[Pd-](Br)(C#[O+])C4=CC=CC=C4)C5=C(C=CC=C5C(C)C)C(C)C)C1)C(C)C)C"  # Example SMILES
-    num_conformers = 25
+
+    smiles = "CC([C@@H]1[C@H](C[C@@H](N2C3=C(C=CC=C3C(C)C)C(C)C)[C@H](N(C2=[Ni+](Br)(C#[O+])C4=CC=CC=C4)C5=C(C=CC=C5C(C)C)C(C)C)C1)C(C)C)C"  # Example SMILES
+    #smiles = "C[C@H]([C@@H]1[C@H](C[C@@H](N2C3=C(C=C(C(C)C)C=C3C(C)C)C(C)C)[C@H](N(C2=[Ni+2](Br)(O4CCCCC4)C5=CC=CC=C5CC)C6=C(C=C(C(C)C)C=C6C(C)C)C(C)C)C1)[C@H](CC)C)CC"
+    #smiles = "CCCC1=CC=CC=C1"
+    num_conformers = 50
     print(f"Generating {num_conformers} conformers for {smiles} and optimizing...")
 
     # Method 1: Using convenience function
     results = uma_geom_optimizer.optimize_smiles_ensemble(
         smiles=smiles,
         num_conformers=num_conformers,
-        output_file="ethanol_ensemble_optimized.xyz"
+        output_file="example_ensemble_from_smiles_optimized.xyz"
     )
 
     print(f"✓ Ensemble optimization successful!")
@@ -39,7 +42,7 @@ def example_ensemble_from_multi_xyz():
     print("\n=== Example 2: Ensemble optimization from multi-XYZ file ===")
 
     input_file = "read_multiple_xyz_file/conf0_confsearch_ensemble.xyz"
-    output_file = "ensemble_from_multiXYZ_optimized.xyz"
+    output_file = "example_ensemble_from_multiXYZ_optimized.xyz"
 
     if not os.path.exists(input_file):
         print(f"✗ Input file {input_file} not found")
@@ -72,7 +75,7 @@ def example_ensemble_from_xyz_directory():
     print("\n=== Example 3: Ensemble optimization from XYZ directory ===")
 
     input_dir = "read_multiple_xyz_dir"
-    output_file = "ensemble_from_directory_optimized.xyz"
+    output_file = "example_ensemble_from_directory_optimized.xyz"
 
     if not os.path.exists(input_dir):
         print(f"✗ Input directory {input_dir} not found")

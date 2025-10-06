@@ -91,7 +91,6 @@ def optimize_single_geometry(
         else:
             raise RuntimeError(f"Optimization failed: {str(e)}")
 
-@time_it
 def optimize_conformer_ensemble(
     conformers: List[Tuple[List[str], List[List[float]]]],
     config: Optional[Config] = None,
@@ -174,6 +173,7 @@ def _optimize_batch(
     import torch_sim as torchsim
     from torch_sim.models.fairchem import FairChemModel
     from torch_sim.optimizers import gradient_descent, fire
+    from torch_sim.autobatching import calculate_memory_scaler, estimate_max_memory_scaler, InFlightAutoBatcher
 
     opt_config = config.optimization
     force_cpu = not opt_config.device.lower().__contains__("cuda")
@@ -196,23 +196,28 @@ def _optimize_batch(
     ase_conformers = [Atoms(symbols=symbols, positions=[tuple(c) for c in coords]) for symbols, coords in conformers]
     batched_state = torchsim.io.atoms_to_state(ase_conformers, device=opt_config.device, dtype=torch.float32)
 
+    batcher = InFlightAutoBatcher(
+        model,
+        memory_scales_with="n_atoms",
+        max_memory_padding=0.95,
+        max_atoms_to_try=len(conformers) * 3, # todo this is not the number of atoms!! there is a current bug in torchsim
+    )
+
     final_state = torch_sim.runners.optimize(
         system = batched_state,
         model = model,
         optimizer = optimizer_fn,
         convergence_fn = convergence_fn,
-        autobatcher = True,
-        steps_between_swaps = 5,
-        pbar = True
+        autobatcher = batcher,
+        steps_between_swaps = 3
     )
 
     final_atoms = final_state.to_atoms()
-    energy_results = model(final_state)
 
     results = []
     for i, atoms in enumerate(final_atoms):
         symbols = atoms.get_chemical_symbols()
         coords = atoms.get_positions().tolist()
-        energy = float(energy_results["energy"][i].item())
+        energy = float(final_state.energy[i].item())
         results.append((symbols, coords, energy))
     return results

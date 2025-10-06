@@ -25,7 +25,6 @@ import argparse
 import sys
 import warnings
 
-# Unterdrückt alle UserWarnings und FutureWarnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
