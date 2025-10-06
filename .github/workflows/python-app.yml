@@ -32,6 +32,7 @@ jobs:
         git clone https://github.com/TorchSim/torch-sim
         cd torch-sim
         pip install .
+        pip install ase
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
