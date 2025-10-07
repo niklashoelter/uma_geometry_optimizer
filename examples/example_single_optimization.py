@@ -94,8 +94,8 @@ if __name__ == "__main__":
     print("UMA Geometry Optimizer - Single Structure Optimization Examples")
     print("=" * 70)
 
-    #example_optimize_from_smiles()
-    #example_optimize_from_xyz()
+    example_optimize_from_smiles()
+    example_optimize_from_xyz()
     example_optimize_with_custom_config()
 
     print("\n" + "=" * 70)

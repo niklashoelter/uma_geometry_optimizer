@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uma-geometry-optimizer"
-version = "0.2.6"
+version = "0.2.7"
 description = "Simple UMA geometry optimization package with Fairchem UMA and Torch-Sim"
 readme = "README.md"
 requires-python = ">=3.11"
