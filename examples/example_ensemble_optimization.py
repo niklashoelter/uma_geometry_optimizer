@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import uma_geometry_optimizer as uma_geom_optimizer
 from uma_geometry_optimizer import Config, Structure
+from uma_geometry_optimizer.config import load_config_from_file
 
 
 def example_ensemble_from_smiles():
@@ -109,12 +110,9 @@ def example_ensemble_with_config():
     print("\n=== Example 4: Ensemble optimization with custom config ===")
 
     # Create custom configuration
-    config = Config()
-    config.optimization.verbose = True
-    config.optimization.batch_optimization_mode = "batch"
-    config.optimization.max_num_conformers = 3
+    config = load_config_from_file("config.json")
 
-    smiles = "c1ccccc1"
+    smiles = "c1ccccc1CCCCC"
     print(f"Optimizing {smiles} ensemble with custom config...")
 
     # Generate conformers with custom count from config
@@ -139,9 +137,9 @@ if __name__ == "__main__":
     print("UMA Geometry Optimizer - Ensemble and Batch Optimization Examples")
     print("=" * 70)
 
-    example_ensemble_from_smiles()
-    example_batch_from_multi_xyz()
-    example_batch_from_xyz_directory()
+    #example_ensemble_from_smiles()
+    #example_batch_from_multi_xyz()
+    #example_batch_from_xyz_directory()
     example_ensemble_with_config()
 
     print("\n" + "=" * 70)

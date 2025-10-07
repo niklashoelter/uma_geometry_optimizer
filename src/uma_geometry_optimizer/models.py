@@ -8,6 +8,7 @@ import torch
 from pathlib import Path
 from typing import Optional
 from .config import Config
+from .decorators import time_it
 
 def _load_hf_token_to_env(config: Config):
     """Load Huggingface token from config to environment variable."""
@@ -22,6 +23,7 @@ def _check_device(device: str) -> str:
         return "cpu"
     return device
 
+@time_it
 def load_model_fairchem(config: Config):
     """Load a FAIRChemCalculator using fairchem's pretrained_mlip helper."""
     from fairchem.core import FAIRChemCalculator, pretrained_mlip  # type: ignore
@@ -31,12 +33,11 @@ def load_model_fairchem(config: Config):
     _load_hf_token_to_env(config)
 
     model_name = (opt.model_name or "").strip()
-    if not model_name:
-        raise ValueError("model_name cannot be empty")
-
     try:
         model_dir = opt.model_path if opt.model_path else os.path.join(os.path.expanduser("~"), ".cache", "fairchem")
         os.makedirs(model_dir, exist_ok=True)
+        if not model_name:
+            model_name = model_dir.split("/")[-1].replace(".pt", "")
     except OSError as e:
         raise OSError(f"Cannot create model cache directory {opt.model_path}: {e}") from e
 
@@ -56,7 +57,7 @@ def load_model_fairchem(config: Config):
             raise ValueError(f"Model '{model_name}' not found in Fairchem registry") from e
         raise RuntimeError(f"Failed to load model '{model_name}': {e}") from e
 
-
+@time_it
 def load_model_torchsim(config: Config):
     """Load a torch-sim FairChemModel from name or checkpoint path."""
     import torch_sim as torchsim  # type: ignore

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import uma_geometry_optimizer as uma_geom_optimizer
 from uma_geometry_optimizer import Config, Structure
+from uma_geometry_optimizer.config import load_config_from_file
 
 
 def example_optimize_from_smiles():
@@ -74,9 +75,7 @@ def example_optimize_with_custom_config():
     print("\n=== Example 3: Optimization with custom configuration ===")
 
     # Create custom configuration
-    config = Config()
-    config.optimization.verbose = True
-    config.optimization.batch_optimization_mode = "sequential"
+    config = load_config_from_file("config.json")
 
     smiles = "C1=C[O+]=CC=C1"
     print(f"Optimizing {smiles} with custom config...")
@@ -95,8 +94,8 @@ if __name__ == "__main__":
     print("UMA Geometry Optimizer - Single Structure Optimization Examples")
     print("=" * 70)
 
-    example_optimize_from_smiles()
-    example_optimize_from_xyz()
+    #example_optimize_from_smiles()
+    #example_optimize_from_xyz()
     example_optimize_with_custom_config()
 
     print("\n" + "=" * 70)
