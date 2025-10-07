@@ -34,7 +34,7 @@ jobs:
         
         # replace pip package with torch-sim from source (fairchem support)
         pip uninstall -y torch-sim-atomistic || true
-        git clone https://github.com/TorchSim/torch-sim
+        git clone https://github.com/niklashoelter/torch-sim
         pip install ./torch-sim
     - name: Lint with flake8
       run: |

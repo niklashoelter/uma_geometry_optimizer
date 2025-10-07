@@ -15,9 +15,9 @@ uv pip install -e . # or plain pip: pip install -e .
 
 # install latest version of torch-sim from source (to support fairchem)
 uv pip uninstall torch-sim-atomistic
-git clone https://github.com/TorchSim/torch-sim
-cd torch-sim
-pip install .  # or plain pip: pip install -e .
+# replace pip package with adapted torch-sim from source (fairchem support and bugs fixed)
+git clone https://github.com/niklashoelter/torch-sim
+uv pip install ./torch-sim 
 ```
 
 **Dependencies that need to be manually installed**:
