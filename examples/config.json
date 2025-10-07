@@ -10,7 +10,7 @@
     "model_path": null,
     "device": "cuda",
     "huggingface_token": null,
-    "huggingface_token_file": "C:\\Users\\nikla\\sciebo\\PhD - Computational Chemistry\\hf_secret",
+    "huggingface_token_file": null,
 
     "logging_level": "INFO"
   }
