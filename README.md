@@ -2,16 +2,6 @@
 
 A minimalist toolkit for molecular geometry optimization using fairchem UMA models and torch-sim. Includes a simple python API and a CLI.
 
-## Highly Recommended: Use a Config File
-
-For all CLI operations, it is strongly recommended to use a configuration file (JSON or YAML). This ensures reproducibility, clarity, and easier management of parameters. The CLI will automatically load `config.json` from the current directory if present, or you can specify a config file explicitly.
-
-**Why use a config file?**
-- Centralizes all optimization parameters
-- Makes workflows reproducible and shareable
-- Avoids long and error-prone command lines
-- Supports both JSON and YAML formats
-
 ## Installation
 
 Using pip:
