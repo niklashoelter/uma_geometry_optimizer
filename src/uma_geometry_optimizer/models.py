@@ -23,6 +23,24 @@ def _check_device(device: str) -> str:
         return "cpu"
     return device
 
+def _verify_model_name_and_cache_dir(config: Config) -> tuple[str, Optional[Path]]:
+    """Verify that model name is provided and return model name and cache directory."""
+    opt = config.optimization
+    model_name = opt.model_name
+    if not model_name:
+        raise ValueError("Model name must be specified in the configuration")
+    model_cache_dir = Path(opt.model_cache_dir) if opt.model_cache_dir else None
+    if model_cache_dir and not model_cache_dir.exists():
+        try:
+            os.makedirs(model_cache_dir, exist_ok=True)
+        except Exception as e:
+            raise ValueError(f"Could not create model cache directory '{model_cache_dir}': {e}") from e
+
+    if not model_cache_dir.exists():
+        model_cache_dir = None
+
+    return model_name, model_cache_dir
+
 @time_it
 def load_model_fairchem(config: Config):
     """Load a FAIRChemCalculator using fairchem's pretrained_mlip helper."""
@@ -32,30 +50,23 @@ def load_model_fairchem(config: Config):
 
     _load_hf_token_to_env(config)
 
-    model_name = (opt.model_name or "").strip()
-    try:
-        model_dir = opt.model_path if opt.model_path else os.path.join(os.path.expanduser("~"), ".cache", "fairchem")
-        os.makedirs(model_dir, exist_ok=True)
-        if not model_name:
-            model_name = model_dir.split("/")[-1].replace(".pt", "")
-    except OSError as e:
-        raise OSError(f"Cannot create model cache directory {opt.model_path}: {e}") from e
-
+    model_name, model_dir = _verify_model_name_and_cache_dir(config)
     device = _check_device(opt.device.lower())
 
-    try:
+    if model_dir:
         predictor = pretrained_mlip.get_predict_unit(
             model_name,
             device=device,
             cache_dir=model_dir,
         )
-        calculator = FAIRChemCalculator(predict_unit=predictor, task_name="omol")
-        return calculator
-    except Exception as e:
-        msg = str(e).lower()
-        if "not found" in msg or "404" in msg:
-            raise ValueError(f"Model '{model_name}' not found in Fairchem registry") from e
-        raise RuntimeError(f"Failed to load model '{model_name}': {e}") from e
+    else:
+        predictor = pretrained_mlip.get_predict_unit(
+            model_name,
+            device=device,
+        )
+
+    calculator = FAIRChemCalculator(predict_unit=predictor, task_name="omol")
+    return calculator
 
 @time_it
 def load_model_torchsim(config: Config):
@@ -65,34 +76,14 @@ def load_model_torchsim(config: Config):
 
     opt = config.optimization
     force_cpu = _check_device(opt.device.lower()) == "cpu"
-
-    model: Optional[FairChemModel] = None
-    model_path = Path(opt.model_path) if opt.model_path else None
-    model_name = opt.model_name if opt.model_name else None
-
+    model_name, model_path = _verify_model_name_and_cache_dir(config)
     _load_hf_token_to_env(config)
 
     if model_path:
-        if not model_path.exists():
-            logging.error(f"Specified model_path does not exist: {model_path}")
-            logging.error("Falling back to default model 'uma-s-1p1'")
-            model_name = "uma-s-1p1"
-            model_path = None
-        else:
-            try:
-                model = FairChemModel(model=model_path, cpu=force_cpu, task_name="omol")
-            except Exception:
-                logging.error(f"Failed to load model from path: {model_path}")
-                logging.error("Falling back to default model 'uma-s-1p1'")
-                model_name = "uma-s-1p1"
-                model_path = None
+        model = FairChemModel(model_name=model_name, model_cache_dir=model_path, cpu=force_cpu, task_name="omol")
+        return model
 
-    if model_name is None and model_path is None:
-        logging.error("No model_name or model_path specified in config, defaulting to 'uma-s-1p1'")
-        model_name = "uma-s-1p1"
-
-    if not model:
-        model = FairChemModel(model=model_path, model_name=model_name, cpu=force_cpu, task_name="omol")
-
+    model = FairChemModel(model_name=model_name, cpu=force_cpu, task_name="omol")
     return model
+
 
