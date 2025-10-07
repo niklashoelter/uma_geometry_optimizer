@@ -2,12 +2,16 @@
 
 A minimalist toolkit for molecular geometry optimization using fairchem UMA models and torch-sim. Includes a simple python API and a CLI.
 
-In principle, this software can operate in different modes:
-1. **Single structure optimization**: Optimize a single molecular structure (from SMILES or XYZ) using ASE and a UMA calculator.
-2. **Conformer ensemble generation & optimization**: Generate a conformer ensemble from SMILES (using Morfeus) and optimize it using either ASE (sequentially) or torch-sim (batched).
-3. **Batch optimization**: Optimize arbitrary, multiple structures from a multi-XYZ file or a directory of XYZ files, either sequentially (ASE) or in batch mode (torch-sim).
+## Highly Recommended: Use a Config File
 
-The batch mode is particularly useful for larger ensembles or many structures, as it can leverage GPU acceleration via torch-sim. In this case, the batch size will be estimated automatically based on available GPU memory and on-the-fly batching will be performed.
+For all CLI operations, it is strongly recommended to use a configuration file (JSON or YAML). This ensures reproducibility, clarity, and easier management of parameters. The CLI will automatically load `config.json` from the current directory if present, or you can specify a config file explicitly.
+
+**Why use a config file?**
+- Centralizes all optimization parameters
+- Makes workflows reproducible and shareable
+- Avoids long and error-prone command lines
+- Supports both JSON and YAML formats
+
 ## Installation
 
 Using pip:
@@ -33,45 +37,66 @@ pip install .  # or plain pip: pip install -e .
 
 Note: Some ML/simulation dependencies (torch, rdkit, fairchem) provide OS- and GPU-specific wheels. Please consult project-specific installation notes as needed.
 
-## CLI Usage
+## CLI Usage (Config-Driven)
 
-The CLI is provided via the command `uma-geom-opt`.
+The CLI is provided via the command `uma-geom-opt`. For best results, create a config file and reference it in all CLI calls.
 
-Examples:
+**Example config file:**
+
+```json
+{
+  "optimization": {
+    "batch_optimization_mode": "batch",
+    "batch_optimizer": "fire",
+    "max_num_conformers": 20,
+    "conformer_seed": 42,
+    "model_name": "uma-s-1p1",
+    "model_path": null,
+    "device": "cuda",
+    "huggingface_token": null,
+    "huggingface_token_file": "/home/employee/n_hoel07/hf_secret",
+    "logging_level": "info"
+  }
+}
+```
+
+**Recommended CLI usage:**
 
 ```bash
-# Optimize a single structure from SMILES
-uma-geom-opt optimize --smiles "CCO" --output ethanol_opt.xyz
+# Optimize a single structure from SMILES using a config file
+uma-geom-opt optimize --smiles "CCO" --output ethanol_opt.xyz --config examples/config.json
 
 # Optimize a single structure from an XYZ file
-uma-geom-opt optimize --xyz test.xyz --output test_opt.xyz
+uma-geom-opt optimize --xyz test.xyz --output test_opt.xyz --config examples/config.json
 
 # Create and optimize a conformer ensemble from SMILES
-uma-geom-opt ensemble --smiles "c1ccccc1" --conformers 10 --output benzene_ensemble.xyz
+uma-geom-opt ensemble --smiles "c1ccccc1" --conformers 10 --output benzene_ensemble.xyz --config examples/config.json
 
 # Batch optimization from a multi-XYZ file
 uma-geom-opt batch --multi-xyz examples/read_multiple_xyz_file/conf0_confsearch_ensemble.xyz \
-  --output optimized_ensemble.xyz
+  --output optimized_ensemble.xyz --config examples/config.json
 
 # Batch optimization from a directory of XYZ files
-uma-geom-opt batch --xyz-dir examples/read_multiple_xyz_dir/ --output optimized_dir.xyz
+uma-geom-opt batch --xyz-dir examples/read_multiple_xyz_dir/ --output optimized_dir.xyz --config examples/config.json
 
 # Convert SMILES to XYZ (no optimization)
-uma-geom-opt convert --smiles "CCO" --output ethanol.xyz
+uma-geom-opt convert --smiles "CCO" --output ethanol.xyz --config examples/config.json
 
 # Generate conformers from SMILES (no optimization)
-uma-geom-opt generate --smiles "c1ccccc1" --conformers 5 --output benzene_conformers.xyz
+uma-geom-opt generate --smiles "c1ccccc1" --conformers 5 --output benzene_conformers.xyz --config examples/config.json
 
 # Create or validate configuration files
 uma-geom-opt config --create examples/config.json
 uma-geom-opt config --validate examples/config.json
 
-# Verbose vs. quiet
-uma-geom-opt optimize --smiles "CCO" --output ethanol.xyz --verbose
-uma-geom-opt ensemble --smiles "CCO" --conformers 3 --output ethanol.xyz --quiet
+# Verbose vs. quiet (set in config file)
+uma-geom-opt optimize --smiles "CCO" --output ethanol.xyz --config examples/config.json
+uma-geom-opt ensemble --smiles "CCO" --conformers 3 --output ethanol.xyz --config examples/config.json
 ```
 
-By default, `config.json` in the current directory is loaded if present.
+**Note:**
+- If `--config` is not specified, `config.json` in the current directory is loaded by default.
+- Direct CLI flags are supported, but using a config file is preferred for all workflows.
 
 ## Python API (short)
 
@@ -100,6 +125,8 @@ uma.save_xyz_file(opt_s, "ethanol_opt.xyz")
 
 All supported parameters live under the `optimization` key. Only these parameters are effective in the code; unknown fields are preserved.
 
+**Always use a config file for CLI and API calls.**
+
 Example (JSON):
 
 ```json
@@ -109,14 +136,12 @@ Example (JSON):
     "batch_optimizer": "fire",
     "max_num_conformers": 20,
     "conformer_seed": 42,
-
     "model_name": "uma-s-1p1",
     "model_path": null,
     "device": "cuda",
     "huggingface_token": null,
     "huggingface_token_file": "/home/employee/n_hoel07/hf_secret",
-
-    "verbose": true
+    "logging_level": "info"
   }
 }
 ```
@@ -129,14 +154,12 @@ optimization:
   batch_optimizer: fire
   max_num_conformers: 20
   conformer_seed: 42
-
   model_name: uma-s-1p1
   model_path: null
   device: cuda
   huggingface_token: null
   huggingface_token_file: /home/employee/n_hoel07/hf_secret
-
-  verbose: true
+  logging_level: info
 ```
 
 - `batch_optimization_mode`: controls the ensemble mode
@@ -145,6 +168,7 @@ optimization:
 - `batch_optimizer`: optimizer for batch mode; `fire` (default) or `gradient_descent`
 - `device`: CPU/GPU (CUDA). Batch mode requires a GPU to run truly batched; on CPU it falls back to sequential.
 - Hugging Face token: either set directly or reference a file.
+- `logging_level`: set logging verbosity (`info`, `warning`, `error`).
 
 ## Examples
 
