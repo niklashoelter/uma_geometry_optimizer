@@ -130,7 +130,7 @@ Example (JSON):
     "model_path": null,
     "device": "cuda",
     "huggingface_token": null,
-    "huggingface_token_file": "/home/employee/n_hoel07/hf_secret",
+    "huggingface_token_file": "/home/hf_secret",
     "logging_level": "info"
   }
 }
@@ -148,7 +148,7 @@ optimization:
   model_path: null
   device: cuda
   huggingface_token: null
-  huggingface_token_file: /home/employee/n_hoel07/hf_secret
+  huggingface_token_file: /home/hf_secret
   logging_level: info
 ```
 
