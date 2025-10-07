@@ -13,10 +13,17 @@ The batch mode is particularly useful for larger ensembles or many structures, a
 Using pip:
 
 ```bash
+# install this package first
 git clone https://github.com/niklashoelter/uma_geometry_optimizer
 cd uma_geometry_optimizer
 
 uv pip install -e . # or plain pip: pip install -e .
+
+# install latest version of torch-sim from source (to support fairchem)
+uv pip uninstall torch-sim-atomistic
+git clone https://github.com/TorchSim/torch-sim
+cd torch-sim
+pip install .  # or plain pip: pip install -e .
 ```
 
 **Dependencies that need to be manually installed**:
