@@ -182,6 +182,8 @@ def _optimize_batch_structures(
             symbols=atoms.get_chemical_symbols(),
             coordinates=atoms.get_positions().tolist(),
             energy=float(final_state.energy[i].item()),
+            charge=int(structures[i].charge), # todo this is a workaround as long as charge and multiplicity not in torchsim
+            multiplicity=int(structures[i].multiplicity),# todo this is a workaround as long as charge and multiplicity not in torchsim
             comment=f"Optimized with model {getattr(model, 'model_name', None) or ''} in batch mode",
         )
         results.append(s)
