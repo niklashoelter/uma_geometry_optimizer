@@ -19,7 +19,7 @@ def example_optimize_from_smiles():
     print("=== Example 1: Single optimization from SMILES ===")
 
     # Simple optimization using convenience function
-    smiles = "C1=C[O+]=CC=C1"
+    smiles = "C1=C[O+]=CC=C1CCCCCC"
     print(f"Optimizing {smiles} ...")
 
     # Method 1: Using convenience function with file output

@@ -10,4 +10,4 @@ optimization:
   huggingface_token: null
   huggingface_token_file: null
 
-  logging_level: INFO
+  logging_level: ERROR

@@ -18,7 +18,7 @@ def example_ensemble_from_smiles():
     """Example 1: Generate and optimize conformer ensemble from SMILES."""
     print("=== Example 1: Ensemble optimization from SMILES ===")
 
-    smiles = "CCO"  # Example SMILES
+    smiles = "CCC(C)COCCC"  # Example SMILES
     num_conformers = 10
     print(f"Generating {num_conformers} conformers for {smiles} and optimizing...")
 
