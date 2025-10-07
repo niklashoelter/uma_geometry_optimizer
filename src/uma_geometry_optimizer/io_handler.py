@@ -6,10 +6,12 @@ and converting between different representations.
 
 import os
 import glob
+import logging
 from typing import List, Optional, Union, Tuple
-
 from .structure import Structure
 from .mol_utils import smiles_to_structure as _smiles_to_structure_util, smiles_to_conformer_ensemble as _smiles_to_ensemble_util
+
+logger = logging.getLogger(__name__)
 
 
 def read_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Structure:
@@ -21,7 +23,7 @@ def read_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Structur
         multiplicity: Optional spin multiplicity to set (default: 1).
 
     Returns:
-        Structure object with symbols, coordinates, and optional comment/energy.
+        Structure object with symbols, coordinates, and optional comment.
 
     Raises:
         FileNotFoundError: If the specified file does not exist.
@@ -33,7 +35,6 @@ def read_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Structur
     symbols: List[str] = []
     coordinates: List[Tuple[float, float, float]] = []
     comment = ""
-    energy: Optional[float] = None
 
     try:
         with open(file_path, 'r') as f:
@@ -47,14 +48,6 @@ def read_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Structur
         if len(lines) < 2 + num_atoms:
             raise ValueError(f"Expected {num_atoms} atom lines, but found {max(0, len(lines)-2)}")
         comment = lines[1] if len(lines) > 1 else ""
-
-        if "Energy:" in comment:
-            try:
-                after = comment.split("Energy:", 1)[1].strip()
-                val = after.split()[0]
-                energy = float(val)
-            except Exception:
-                energy = None
 
         for i in range(num_atoms):
             parts = lines[2 + i].split()
@@ -74,7 +67,7 @@ def read_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Structur
         else:
             raise ValueError(f"Error reading XYZ file: {str(e)}")
 
-    return Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment, charge=charge, multiplicity=multiplicity)
+    return Structure(symbols=symbols, coordinates=coordinates, comment=comment, charge=charge, multiplicity=multiplicity)
 
 
 def read_multi_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> List[Structure]:
@@ -117,14 +110,6 @@ def read_multi_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Li
                 break
 
             comment = lines[i + 1] if (i + 1) < len(lines) else ""
-            energy: Optional[float] = None
-            if "Energy:" in comment:
-                try:
-                    after = comment.split("Energy:", 1)[1].strip()
-                    val = after.split()[0]
-                    energy = float(val)
-                except Exception:
-                    energy = None
 
             symbols: List[str] = []
             coordinates: List[Tuple[float, float, float]] = []
@@ -145,7 +130,7 @@ def read_multi_xyz(file_path: str, charge: int = 0, multiplicity: int = 1) -> Li
                 coordinates.append((x, y, z))
 
             if valid and len(symbols) == num_atoms:
-                structures.append(Structure(symbols=symbols, coordinates=coordinates, energy=energy, comment=comment, charge=charge, multiplicity=multiplicity))
+                structures.append(Structure(symbols=symbols, coordinates=coordinates, comment=comment, charge=charge, multiplicity=multiplicity))
 
             i = i + 2 + num_atoms
 
@@ -184,7 +169,7 @@ def read_xyz_directory(directory_path: str, charge: int = 0, multiplicity: int =
         try:
             structures.append(read_xyz(xyz_file, charge=charge, multiplicity=multiplicity))
         except Exception as e:
-            print(f"Warning: Failed to read {xyz_file}: {e}")
+            logger.warning("Failed to read %s: %s", xyz_file, e)
 
     if not structures:
         raise ValueError("No valid structures could be read from any XYZ files")
@@ -209,7 +194,7 @@ def smiles_to_xyz(smiles_string: str, return_full_xyz_str: bool = False) -> Unio
 
     if return_full_xyz_str:
         xyz_lines = [str(struct.n_atoms)]
-        xyz_lines.append(f"Generated from SMILES: {smiles_string}")
+        xyz_lines.append(f"Generated from SMILES using MORFEUS")
         for atom, coord in zip(struct.symbols, struct.coordinates):
             xyz_lines.append(f"{atom} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}")
         return "\n".join(xyz_lines)
@@ -237,13 +222,13 @@ def smiles_to_ensemble(smiles_string: str, num_conformers: int, return_full_xyz_
     conformers: List[Structure] = _smiles_to_ensemble_util(smiles_string.strip(), num_conformers)
     if not return_full_xyz_str:
         for i, s in enumerate(conformers):
-            s.comment = f"Conformer {i+1} from SMILES: {smiles_string}"
+            s.comment = f"Conformer {i+1} generated from SMILES using MORFEUS"
         return conformers
 
     xyz_conformers: List[str] = []
     for i, s in enumerate(conformers):
         xyz_lines = [str(s.n_atoms)]
-        xyz_lines.append(f"Conformer {i+1} from SMILES: {smiles_string}")
+        xyz_lines.append(f"Conformer {i+1} from SMILES using MORFEUS")
         for atom, coord in zip(s.symbols, s.coordinates):
             xyz_lines.append(f"{atom} {coord[0]:.6f} {coord[1]:.6f} {coord[2]:.6f}")
         xyz_conformers.append("\n".join(xyz_lines))
@@ -270,7 +255,7 @@ def save_xyz_file(structure: Structure, filepath: str) -> None:
     with open(filepath, 'w') as f:
         f.write(f"{structure.n_atoms}\n")
         if structure.energy is not None:
-            f.write(f"{structure.comment} | Energy: {structure.energy:.6f} eV\n")
+            f.write(f"{structure.comment} | Energy: {structure.energy:.6f}\n")
         else:
             f.write(f"{structure.comment}\n")
         for symbol, coord in zip(structure.symbols, structure.coordinates):

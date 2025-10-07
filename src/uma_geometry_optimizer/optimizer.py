@@ -3,8 +3,9 @@
 This module contains optimization logic for single structures and
 batches of structures (e.g., conformer ensembles).
 """
-from typing import List, Tuple, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
+import logging
 import torch_sim
 from ase import Atoms
 from ase.optimize import BFGS
@@ -16,6 +17,8 @@ from .structure import Structure
 
 if TYPE_CHECKING:
     from fairchem.core import FAIRChemCalculator
+
+logger = logging.getLogger(__name__)
 
 
 @time_it
@@ -31,8 +34,6 @@ def optimize_single_structure(
     if config is None:
         config = load_config_from_file()
 
-    opt_config = config.optimization
-
     symbols = structure.symbols
     coordinates = structure.coordinates
     charge = structure.charge
@@ -46,13 +47,11 @@ def optimize_single_structure(
         atoms.calc = calculator
         atoms.info = {'charge': charge, 'spin': multiplicity}
 
-        if opt_config.verbose:
-            print(f"Starting geometry optimization for structure with {len(symbols)} atoms")
+        logger.info("Starting geometry optimization for structure with %d atoms", len(symbols))
         optimizer = BFGS(atoms, logfile=None)
         optimizer.run()
 
-        if opt_config.verbose:
-            print(f"Optimization completed after {optimizer.get_number_of_steps()} steps")
+        logger.info("Optimization completed after %d steps", optimizer.get_number_of_steps())
 
         optimized_coords = atoms.get_positions().tolist()
         potential_energy = atoms.get_potential_energy()
@@ -90,11 +89,11 @@ def optimize_structure_batch(
     device = _check_device(config.optimization.device)
     force_cpu = device == "cpu"
 
-    print(f"Optimization device: {'CPU' if force_cpu else 'GPU'}")
+    logger.info("Optimization device: %s", 'CPU' if force_cpu else 'GPU')
     mode = config.optimization.batch_optimization_mode.lower()
     if mode == "sequential" or force_cpu:
         if not force_cpu and mode=="batch":
-            print("Warning: Batch optimization mode requires GPU, falling back to sequential mode on CPU.")
+            logger.warning("Batch optimization mode requires GPU, falling back to sequential mode on CPU.")
         return _optimize_batch_sequential(structures, config)
     elif mode == "batch" and not force_cpu:
         return _optimize_batch_structures(structures, config)
@@ -109,23 +108,19 @@ def _optimize_batch_sequential(
 ) -> List[Structure]:
     """Optimize structures sequentially using single geometry optimization."""
     calculator = load_model_fairchem(config)
-    opt_config = config.optimization
 
     optimized_results: List[Structure] = []
-    if opt_config.verbose:
-        print(f"Starting sequential optimization of {len(structures)} structures")
+    logger.info("Starting sequential optimization of %d structures", len(structures))
 
     for i, s in enumerate(structures):
         try:
             optimized = optimize_single_structure(s, config, calculator)
             optimized_results.append(optimized)
         except Exception as e:
-            if opt_config.verbose:
-                print(f"Warning: Structure {i+1} optimization failed: {e}")
+            logger.warning("Structure %d optimization failed: %s", i+1, e)
             continue
 
-    if opt_config.verbose:
-        print(f"Sequential optimization completed. {len(optimized_results)}/{len(structures)} successful")
+    logger.info("Sequential optimization completed. %d/%d successful", len(optimized_results), len(structures))
 
     return optimized_results
 
@@ -141,12 +136,11 @@ def _optimize_batch_structures(
     from torch_sim.optimizers import gradient_descent, fire
     from torch_sim.autobatching import InFlightAutoBatcher
 
-    opt_config = config.optimization
-    device = _check_device(opt_config.device)
+    device = _check_device(config.optimization.device)
 
     model = load_model_torchsim(config)
 
-    optimizer_name = getattr(opt_config, 'batch_optimizer', 'fire') or 'fire'
+    optimizer_name = getattr(config.optimization, 'batch_optimizer', 'fire') or 'fire'
     optimizer_name = str(optimizer_name).strip().lower()
     optimizer_fn = fire if optimizer_name == 'fire' else gradient_descent
     convergence_fn = torch_sim.generate_energy_convergence_fn(energy_tol=1e-6)

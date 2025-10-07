@@ -10,6 +10,20 @@ The package is designed to be simple and focused, providing only the functionali
 that is actually implemented and tested.
 """
 
+import logging
+import sys
+
+# Attach a NullHandler so library users don't get "No handler could be found" warnings
+logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+# Ensure that if no handlers are configured, Python's lastResort logs to stdout
+if isinstance(getattr(logging, "lastResort", None), logging.Handler):
+    try:
+        # lastResort is a StreamHandler; move its stream to stdout
+        logging.lastResort.setStream(sys.stdout)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
 from .structure import Structure
 from .io_handler import read_xyz, read_multi_xyz, read_xyz_directory, smiles_to_xyz, smiles_to_ensemble, save_xyz_file, save_multi_xyz
 from .optimizer import optimize_single_structure, optimize_structure_batch

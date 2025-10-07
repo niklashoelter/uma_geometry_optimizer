@@ -15,12 +15,17 @@ H 0.000000 1.000000 0.000000
     s = read_xyz(str(src), charge=-1, multiplicity=2)
     assert isinstance(s, Structure)
     assert s.n_atoms == 3
-    assert s.energy == -1.0
+    # Energies should not be parsed from comments when reading
+    assert s.energy is None
     assert s.charge == -1 and s.multiplicity == 2
 
+    # If we set an energy and save, it should be written
+    s.energy = -1.0
     out = tmp_path / "out.xyz"
     save_xyz_file(s, str(out))
     assert out.exists()
+    data = out.read_text()
+    assert "Energy: -1.000000" in data
 
 
 def test_read_multi_xyz(tmp_path):
@@ -38,7 +43,8 @@ He 0 0 1
     src.write_text(content)
     items = read_multi_xyz(str(src), charge=0, multiplicity=1)
     assert len(items) == 2
-    assert items[0].energy == -2.0
+    # Energies should not be parsed when reading multi-XYZ either
+    assert items[0].energy is None
     assert items[1].energy is None
     assert all(s.charge == 0 and s.multiplicity == 1 for s in items)
 
@@ -51,5 +57,5 @@ def test_save_multi_xyz(tmp_path):
     out = tmp_path / "multi.xyz"
     save_multi_xyz(structs, str(out), comments=["A", "B"])
     data = out.read_text()
-    assert "A | Energy: -1.000000 eV" in data
+    assert "A | Energy: -1.000000" in data
     assert "B\nHe" in data

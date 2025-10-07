@@ -27,6 +27,7 @@ Examples:
 import argparse
 import sys
 import warnings
+import logging
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -40,6 +41,21 @@ from .io_handler import (
     smiles_to_xyz, smiles_to_ensemble,
     save_xyz_file, save_multi_xyz
 )
+from .logging_utils import configure_logging
+
+
+logger = logging.getLogger(__name__)
+
+
+def _level_from_string(name: str) -> int:
+    m = {
+        "CRITICAL": logging.CRITICAL,
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+    }
+    return m.get((name or "").upper(), logging.INFO)
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -300,28 +316,24 @@ def cmd_optimize(args, config: Config):
 
     try:
         if args.smiles:
-            if config.optimization.verbose:
-                print(f"Converting SMILES '{args.smiles}' to 3D coordinates...")
+            logger.info("Converting SMILES '%s' to 3D coordinates...", args.smiles)
             structure = cast(Structure, smiles_to_xyz(args.smiles))
             structure.comment = f"Optimized from SMILES: {args.smiles}"
         else:
-            if config.optimization.verbose:
-                print(f"Reading structure from {args.xyz}")
+            logger.info("Reading structure from %s", args.xyz)
             structure = read_xyz(args.xyz, charge=args.charge, multiplicity=args.multiplicity)
             structure.comment = f"Optimized from: {args.xyz}"
 
-        if config.optimization.verbose:
-            print(f"Optimizing structure with {structure.n_atoms} atoms...")
+        logger.info("Optimizing structure with %d atoms...", structure.n_atoms)
 
         optimized = optimize_single_structure(structure, config)
         save_xyz_file(optimized, args.output)
 
-        if config.optimization.verbose:
-            print(f"Optimization completed. Final energy: {optimized.energy:.6f} eV")
-            print(f"Optimized structure saved to {args.output}")
+        logger.info("Optimization completed. Final energy: %.6f eV", optimized.energy if optimized.energy is not None else float('nan'))
+        logger.info("Optimized structure saved to %s", args.output)
 
     except Exception as e:
-        print(f"Error during single structure optimization: {e}")
+        logger.exception("Error during single structure optimization: %s", e)
         sys.exit(1)
 
 
@@ -335,18 +347,16 @@ def cmd_ensemble(args, config: Config):
     try:
         # Determine number of conformers from CLI or config
         num_conf = args.conformers or config.optimization.max_num_conformers
-        if config.optimization.verbose:
-            print(f"Generating {num_conf} conformers for SMILES: {args.smiles}")
+        logger.info("Generating %d conformers for SMILES: %s", num_conf, args.smiles)
 
         conformers: List[Structure] = cast(List[Structure], smiles_to_ensemble(args.smiles, num_conformers=num_conf))
 
         if not conformers:
-            print("Error: No conformers found")
+            logger.error("No conformers found")
             sys.exit(1)
 
-        if config.optimization.verbose:
-            print(f"Found {len(conformers)} conformers with {conformers[0].n_atoms} atoms each")
-            print("Starting ensemble optimization using Fairchem UMA model...")
+        logger.info("Found %d conformers with %d atoms each", len(conformers), conformers[0].n_atoms)
+        logger.info("Starting ensemble optimization using Fairchem UMA model...")
 
         # Optimize conformer ensemble using configured mode (sequential/batch)
         optimized_conformers = optimize_structure_batch(conformers, config)
@@ -357,12 +367,11 @@ def cmd_ensemble(args, config: Config):
         # Save results
         save_multi_xyz(optimized_conformers, args.output, comments)
 
-        if config.optimization.verbose:
-            print(f"Ensemble optimization completed successfully!")
-            print(f"{len(optimized_conformers)} optimized conformers saved to {args.output}")
+        logger.info("Ensemble optimization completed successfully!")
+        logger.info("%d optimized conformers saved to %s", len(optimized_conformers), args.output)
 
     except Exception as e:
-        print(f"Error during ensemble optimization: {e}")
+        logger.exception("Error during ensemble optimization: %s", e)
         sys.exit(1)
 
 
@@ -372,59 +381,52 @@ def cmd_batch(args, config: Config):
 
     try:
         if args.multi_xyz:
-            if config.optimization.verbose:
-                print(f"Reading structures from multi-XYZ file: {args.multi_xyz}")
+            logger.info("Reading structures from multi-XYZ file: %s", args.multi_xyz)
             structures = read_multi_xyz(args.multi_xyz, charge=args.charge, multiplicity=args.multiplicity)
         else:
-            if config.optimization.verbose:
-                print(f"Reading structures from directory: {args.xyz_dir}")
+            logger.info("Reading structures from directory: %s", args.xyz_dir)
             structures = read_xyz_directory(args.xyz_dir, charge=args.charge, multiplicity=args.multiplicity)
 
         if not structures:
-            print("Error: No structures found")
+            logger.error("No structures found")
             sys.exit(1)
 
-        if config.optimization.verbose:
-            print(f"Found {len(structures)} structures with {structures[0].n_atoms} atoms each")
-            print("Starting batch optimization using Fairchem UMA model...")
+        logger.info("Found %d structures with %d atoms each", len(structures), structures[0].n_atoms)
+        logger.info("Starting batch optimization using Fairchem UMA model...")
 
         optimized_structures = optimize_structure_batch(structures, config)
 
         comments = [f"Optimized structure {i+1}" for i in range(len(optimized_structures))]
         save_multi_xyz(optimized_structures, args.output, comments)
 
-        if config.optimization.verbose:
-            print(f"Batch optimization completed successfully!")
-            print(f"{len(optimized_structures)} optimized structures saved to {args.output}")
+        logger.info("Batch optimization completed successfully!")
+        logger.info("%d optimized structures saved to %s", len(optimized_structures), args.output)
 
     except Exception as e:
-        print(f"Error during batch optimization: {e}")
+        logger.exception("Error during batch optimization: %s", e)
         sys.exit(1)
 
 
 def cmd_convert(args, config: Config):
     """Handle SMILES to XYZ conversion command."""
-    if config.optimization.verbose:
-        print(f"Converting SMILES '{args.smiles}' to XYZ format...")
+    logger.info("Converting SMILES '%s' to XYZ format...", args.smiles)
 
     try:
         structure = cast(Structure, smiles_to_xyz(args.smiles))
         structure.comment = f"Generated from SMILES: {args.smiles}"
         save_xyz_file(structure, args.output)
 
-        if config.optimization.verbose:
-            print(f"Structure with {structure.n_atoms} atoms saved to {args.output}")
+        logger.info("Structure with %d atoms saved to %s", structure.n_atoms, args.output)
 
     except Exception as e:
-        print(f"Error converting SMILES to XYZ: {e}")
+        logger.exception("Error converting SMILES to XYZ: %s", e)
         sys.exit(1)
 
 
 def cmd_generate(args, config: Config):
     """Handle conformer generation command (no optimization)."""
     num_conf = args.conformers or config.optimization.max_num_conformers
-    if config.optimization.verbose:
-        print(f"Generating {num_conf} conformers from SMILES '{args.smiles}'...")
+    logger.info("Generating %d conformers from SMILES '%s'...", num_conf, args.smiles)
 
     try:
         conformers = cast(List[Structure], smiles_to_ensemble(args.smiles, num_conf))
@@ -432,11 +434,10 @@ def cmd_generate(args, config: Config):
 
         save_multi_xyz(conformers, args.output, comments)
 
-        if config.optimization.verbose:
-            print(f"Generated {len(conformers)} conformers and saved to {args.output}")
+        logger.info("Generated %d conformers and saved to %s", len(conformers), args.output)
 
     except Exception as e:
-        print(f"Error generating conformer ensemble: {e}")
+        logger.exception("Error generating conformer ensemble: %s", e)
         sys.exit(1)
 
 
@@ -446,17 +447,17 @@ def cmd_config(args, config: Config):
         if args.create:
             default_config = Config()
             save_config_to_file(default_config, args.create)
-            print(f"Default configuration saved to {args.create}")
+            logger.info("Default configuration saved to %s", args.create)
 
         elif args.validate:
             config = load_config_from_file(args.validate)
-            print(f"Configuration file {args.validate} is valid")
+            logger.info("Configuration file %s is valid", args.validate)
 
     except Exception as e:
         if args.create:
-            print(f"Error creating configuration file: {e}")
+            logger.exception("Error creating configuration file: %s", e)
         else:
-            print(f"Configuration file {args.validate} is invalid: {e}")
+            logger.exception("Configuration file %s is invalid: %s", args.validate, e)
         sys.exit(1)
 
 
@@ -469,27 +470,26 @@ def main():
         parser.print_help()
         return
 
-    # Load configuration
+    # Load configuration and configure logging
     try:
         if hasattr(args, 'config') and args.config:
             config = load_config_from_file(args.config)
-            if hasattr(config.optimization, 'verbose') and config.optimization.verbose:
-                print(f"Loaded configuration from {args.config}")
         else:
-            config = load_config_from_file()  # Load from default config.json if exists
+            config = load_config_from_file()
     except Exception as e:
-        if hasattr(args, 'config') and args.config:
-            print(f"Error loading config file {args.config}: {e}")
-            sys.exit(1)
-        else:
-            # Use default config if no config file specified and default doesn't exist
-            config = Config()
+        # If config fails to load, fall back to defaults
+        config = Config()
+        logger.debug("Falling back to default config due to error: %s", e)
 
-    # Override verbosity from command line
-    if args.verbose:
-        config.optimization.verbose = True
-    elif args.quiet:
-        config.optimization.verbose = False
+    # Resolve logging level: CLI flags override config
+    if getattr(args, 'quiet', False):
+        level = logging.ERROR
+    elif getattr(args, 'verbose', False):
+        level = logging.INFO
+    else:
+        level = _level_from_string(getattr(config.optimization, 'logging_level', 'INFO'))
+
+    configure_logging(level=level)
 
     # Route to appropriate command handler
     try:
@@ -511,13 +511,10 @@ def main():
             parser.print_help()
 
     except KeyboardInterrupt:
-        print("\nOperation cancelled by user")
+        logger.error("Operation cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error: {e}")
-        if hasattr(config, 'optimization') and config.optimization.verbose:
-            import traceback
-            traceback.print_exc()
+        logger.exception("Unexpected error: %s", e)
         sys.exit(1)
 
 

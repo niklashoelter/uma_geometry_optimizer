@@ -11,6 +11,6 @@
     "huggingface_token": null,
     "huggingface_token_file": null,
 
-    "verbose": true
+    "logging_level": "INFO"
   }
 }

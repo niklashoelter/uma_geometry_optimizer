@@ -1,13 +1,13 @@
+import logging
 from uma_geometry_optimizer.decorators import time_it
 
 
-def test_time_it_decorator_prints(capsys):
+def test_time_it_decorator_logs_time(caplog):
     @time_it
     def add(a, b):
         return a + b
 
-    out = add(2, 3)
+    with caplog.at_level(logging.WARNING):
+        out = add(2, 3)
     assert out == 5
-    captured = capsys.readouterr().out
-    assert "Function:'add'" in captured or "Function: 'add'" in captured or "Function:add" in captured
-
+    assert any("Function:" in rec.message and "took:" in rec.message for rec in caplog.records)

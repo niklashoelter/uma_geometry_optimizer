@@ -12,7 +12,10 @@ import copy
 import json
 import os
 import torch
+import logging
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -30,7 +33,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "huggingface_token": None,
         "huggingface_token_file": None,
 
-        "verbose": True,
+        # New logging level control: one of "ERROR", "WARNING", "INFO", "DEBUG"
+        "logging_level": "INFO",
     }
 }
 
@@ -98,8 +102,7 @@ class _Section:
                 content = fh.read().strip()
             return content or None
         except (OSError, IOError) as e:
-            if bool(opt.get("verbose", True)):
-                print(f"Warning: Could not read HuggingFace token from {token_file}: {e}")
+            logger.warning("Could not read HuggingFace token from %s: %s", token_file, e)
             return None
 
 
@@ -108,7 +111,7 @@ class Config:
 
     Example:
         cfg = load_config_from_file()
-        print(cfg.optimization.verbose)
+        print(cfg.optimization.logging_level)
         cfg.optimization.device = "cuda"
         save_config_to_file(cfg, "config.json")
     """
@@ -202,8 +205,7 @@ def get_huggingface_token(config: Config | Dict[str, Any]) -> Optional[str]:
             content = fh.read().strip()
         return content or None
     except (OSError, IOError) as e:
-        if bool(opt.get("verbose", True)):
-            print(f"Warning: Could not read HuggingFace token from {token_file}: {e}")
+        logger.warning("Could not read HuggingFace token from %s: %s", token_file, e)
         return None
 
 

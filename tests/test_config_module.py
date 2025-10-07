@@ -1,4 +1,5 @@
 import torch
+import logging
 
 from uma_geometry_optimizer.config import (
     Config,
@@ -28,7 +29,7 @@ def test_default_device_matches_torch():
 def test_load_and_save_config_json(tmp_path):
     # Save custom config
     cfg = Config()
-    cfg.optimization.verbose = False
+    cfg.optimization.logging_level = "ERROR"
     out = tmp_path / "config.json"
     save_config_to_file(cfg, str(out))
     assert out.exists()
@@ -36,7 +37,7 @@ def test_load_and_save_config_json(tmp_path):
     # Load and merge
     loaded = load_config_from_file(str(out))
     assert isinstance(loaded, Config)
-    assert loaded.optimization.verbose is False
+    assert loaded.optimization.logging_level == "ERROR"
     # unknown keys preserved
     data = loaded.to_dict()
     data["custom"] = {"a": 1}
@@ -62,12 +63,11 @@ def test_get_huggingface_token_from_inline_and_file(tmp_path):
     assert get_huggingface_token(d) == "secrettoken"
 
 
-def test_get_huggingface_token_missing_file_prints_warning(tmp_path, capsys):
+def test_get_huggingface_token_missing_file_logs_warning(tmp_path, caplog):
     cfg = Config()
     cfg.optimization.huggingface_token = None
     cfg.optimization.huggingface_token_file = str(tmp_path / "missing.txt")
-    cfg.optimization.verbose = True
-    token = cfg.optimization.get_huggingface_token()
+    with caplog.at_level(logging.WARNING):
+        token = cfg.optimization.get_huggingface_token()
     assert token is None
-    out = capsys.readouterr().out
-    assert "Could not read HuggingFace token" in out
+    assert any("Could not read HuggingFace token" in rec.message for rec in caplog.records)
