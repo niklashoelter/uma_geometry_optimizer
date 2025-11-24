@@ -10,6 +10,6 @@ def time_it(f):
         ts = time()
         result = f(*args, **kw)
         te = time()
-        logger.info("Function:%r took: %.2f sec to complete", f.__name__, te - ts)
+        logger.info("Function: %r took: %.2f sec to complete", f.__name__, te - ts)
         return result
     return wrap

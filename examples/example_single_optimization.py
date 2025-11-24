@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import uma_geometry_optimizer as uma_geom_optimizer
-from uma_geometry_optimizer import Config, Structure
+from uma_geometry_optimizer import Structure
 from uma_geometry_optimizer.config import load_config_from_file
 
 
@@ -94,8 +94,8 @@ if __name__ == "__main__":
     print("UMA Geometry Optimizer - Single Structure Optimization Examples")
     print("=" * 70)
 
-    #example_optimize_from_smiles()
-    #example_optimize_from_xyz()
+    example_optimize_from_smiles()
+    example_optimize_from_xyz()
     example_optimize_with_custom_config()
 
     print("\n" + "=" * 70)

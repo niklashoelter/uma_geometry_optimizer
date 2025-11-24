@@ -7,7 +7,7 @@ def test_time_it_decorator_logs_time(caplog):
     def add(a, b):
         return a + b
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO):
         out = add(2, 3)
     assert out == 5
     assert any("Function:" in rec.message and "took:" in rec.message for rec in caplog.records)

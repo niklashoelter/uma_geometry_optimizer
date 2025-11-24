@@ -137,10 +137,10 @@ if __name__ == "__main__":
     print("UMA Geometry Optimizer - Ensemble and Batch Optimization Examples")
     print("=" * 70)
 
-    #example_ensemble_from_smiles()
+    example_ensemble_from_smiles()
     #example_batch_from_multi_xyz()
     #example_batch_from_xyz_directory()
-    example_ensemble_with_config()
+    #example_ensemble_with_config()
 
     print("\n" + "=" * 70)
     print("Examples completed! Check the generated XYZ files.")

@@ -80,7 +80,7 @@ def load_model_torchsim(config: Config):
     _load_hf_token_to_env(config)
 
     if model_path:
-        model = FairChemModel(model_name=model_name, model_cache_dir=model_path, cpu=force_cpu, task_name="omol")
+        model = FairChemModel(model=model_path, cpu=force_cpu, task_name="omol")
         return model
 
     model = FairChemModel(model_name=model_name, cpu=force_cpu, task_name="omol")
