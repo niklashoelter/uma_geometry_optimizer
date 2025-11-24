@@ -21,7 +21,7 @@ uv pip install ./torch-sim
 ```
 
 **Dependencies that need to be manually installed**:
-- **torch-sim**: uninstall & install from source (https://github.com/TorchSim/torch-sim) currently necessary as fairchem support is not released yet!
+- **torch-sim**: uninstall & install of a patched version from source currently necessary as fairchem support is not released yet!
 - pyyaml (optional if you use YAML configs)
 - pytest (for running tests)
 

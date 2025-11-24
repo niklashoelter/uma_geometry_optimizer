@@ -47,10 +47,9 @@ def optimize_single_structure(
         atoms.calc = calculator
         atoms.info = {'charge': charge, 'spin': multiplicity}
 
-        logger.info("Starting geometry optimization for structure with %d atoms", len(symbols))
+        logger.info("Starting single geometry optimization for structure with %d atoms", len(symbols))
         optimizer = BFGS(atoms, logfile=None)
         optimizer.run()
-
         logger.info("Optimization completed after %d steps", optimizer.get_number_of_steps())
 
         optimized_coords = atoms.get_positions().tolist()
@@ -121,7 +120,6 @@ def _optimize_batch_sequential(
             continue
 
     logger.info("Sequential optimization completed. %d/%d successful", len(optimized_results), len(structures))
-
     return optimized_results
 
 
@@ -135,9 +133,9 @@ def _optimize_batch_structures(
     import torch_sim as torchsim
     from torch_sim.optimizers import gradient_descent, fire
     from torch_sim.autobatching import InFlightAutoBatcher
+    logger.info("Starting batch optimization of %d structures", len(structures))
 
     device = _check_device(config.optimization.device)
-
     model = load_model_torchsim(config)
 
     optimizer_name = getattr(config.optimization, 'batch_optimizer', 'fire') or 'fire'
@@ -157,7 +155,7 @@ def _optimize_batch_structures(
         model,
         memory_scales_with="n_atoms",
         max_memory_padding=0.95,
-        max_atoms_to_try=len(structures) * 3,
+        max_atoms_to_try=len(structures) * 2,
     )
 
     final_state = torch_sim.runners.optimize(
