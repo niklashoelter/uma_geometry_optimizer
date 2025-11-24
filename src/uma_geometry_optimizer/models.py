@@ -103,7 +103,7 @@ def load_model_torchsim(config: Config):
         model = FairChemModel(model=model_path, cpu=force_cpu, task_name="omol")
         return model
 
-    model = FairChemModel(model_name=model_name, model_cache_dir=model_cache_dir, cpu=force_cpu, task_name="omol")
+    model = FairChemModel(model=None, model_name=model_name, model_cache_dir=model_cache_dir, cpu=force_cpu, task_name="omol")
     return model
 
 
