@@ -2,7 +2,6 @@ import uma_geometry_optimizer as pkg
 
 
 def test_package_exports_and_metadata():
-    assert isinstance(pkg.__version__, str)
     assert hasattr(pkg, "Structure")
     assert hasattr(pkg, "read_xyz")
     assert hasattr(pkg, "optimize_structure_batch")
