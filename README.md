@@ -2,6 +2,11 @@
 
 A minimalist toolkit for molecular geometry optimization using fairchem UMA models and torch-sim. Includes a simple python API and a CLI.
 
+## Known limitations
+
+- Batch optimization mode currently only supports neutral singlet systems (charge = 0, multiplicity = 1).
+  Different charges and spin multiplicities are only supported in single-structure optimizations.
+
 ## Installation
 
 Using pip:
@@ -12,16 +17,9 @@ git clone https://github.com/niklashoelter/uma_geometry_optimizer
 cd uma_geometry_optimizer
 
 uv pip install -e . # or plain pip: pip install -e .
-
-# install latest version of torch-sim from source (to support fairchem)
-uv pip uninstall torch-sim-atomistic
-# replace pip package with adapted torch-sim from source (fairchem support and bugs fixed)
-git clone https://github.com/niklashoelter/torch-sim
-uv pip install ./torch-sim 
 ```
 
 **Dependencies that need to be manually installed**:
-- **torch-sim**: uninstall & install of a patched version from source currently necessary as fairchem support is not released yet!
 - pyyaml (optional if you use YAML configs)
 - pytest (for running tests)
 
@@ -29,9 +27,10 @@ Note: Some ML/simulation dependencies (torch, rdkit, fairchem) provide OS- and G
 
 ## CLI Usage (Config-Driven)
 
-The CLI is provided via the command `uma-geom-opt`. For best results, create a config file and reference it in all CLI calls.
+The CLI is provided via the command `uma-geom-opt`. For best results, create a
+config file (JSON or YAML) and reference it in all CLI calls.
 
-**Example config file:**
+**Example config file (JSON):**
 
 ```json
 {
@@ -40,14 +39,36 @@ The CLI is provided via the command `uma-geom-opt`. For best results, create a c
     "batch_optimizer": "fire",
     "max_num_conformers": 20,
     "conformer_seed": 42,
-    "model_name": "uma-s-1p1",
+
+    "model_name": "uma-m-1p1",
     "model_path": null,
+    "model_cache_dir": null,
     "device": "cuda",
     "huggingface_token": null,
     "huggingface_token_file": "/home/hf_secret",
-    "logging_level": "info"
+
+    "logging_level": "INFO"
   }
 }
+```
+
+**Example config file (YAML):**
+
+```yaml
+optimization:
+  batch_optimization_mode: batch
+  batch_optimizer: fire
+  max_num_conformers: 20
+  conformer_seed: 42
+
+  model_name: uma-m-1p1
+  model_path: null
+  model_cache_dir: null
+  device: cuda
+  huggingface_token: null
+  huggingface_token_file: /home/hf_secret
+
+  logging_level: INFO
 ```
 
 **Recommended CLI usage:**
@@ -94,21 +115,32 @@ uma-geom-opt ensemble --smiles "CCO" --conformers 3 --output ethanol.xyz --confi
 import uma_geometry_optimizer as uma
 from uma_geometry_optimizer import Config, Structure
 
-# Convenience: optimize a single molecule from SMILES and optionally save
+# Convenience (top-level, via the public api module): optimize a single
+# molecule from SMILES and optionally save
 cfg = Config()  # or uma.load_config_from_file("config.json")
-optimized: Structure = uma.optimize_single_smiles("CCO", output_file="ethanol_opt.xyz", config=cfg)
+optimized: Structure = uma.optimize_single_smiles(
+    "CCO", output_file="ethanol_opt.xyz", config=cfg
+)
 print(optimized.energy)
 
 # Convenience: optimize a single molecule from an XYZ file
-optimized2: Structure = uma.optimize_single_xyz_file("test.xyz", output_file="test_opt.xyz", config=cfg)
+optimized2: Structure = uma.optimize_single_xyz_file(
+    "test.xyz", output_file="test_opt.xyz", config=cfg
+)
 
 # Convenience: optimize a conformer ensemble generated from SMILES
-optimized_confs = uma.optimize_smiles_ensemble("c1ccccc1", num_conformers=5, output_file="benzene_ensemble.xyz", config=cfg)
+optimized_confs = uma.optimize_smiles_ensemble(
+    "c1ccccc1", num_conformers=5, output_file="benzene_ensemble.xyz", config=cfg
+)
 
-# Lower-level building blocks
+# Lower-level building blocks are available via the package root as well
 s: Structure = uma.smiles_to_xyz("CCO")
 opt_s: Structure = uma.optimize_single_structure(s, cfg)
 uma.save_xyz_file(opt_s, "ethanol_opt.xyz")
+
+# You can also import directly from the dedicated API module if you prefer
+from uma_geometry_optimizer.api import optimize_single_smiles
+opt3 = optimize_single_smiles("CCO", config=cfg)
 ```
 
 ## Configuration
@@ -126,12 +158,15 @@ Example (JSON):
     "batch_optimizer": "fire",
     "max_num_conformers": 20,
     "conformer_seed": 42,
-    "model_name": "uma-s-1p1",
+
+    "model_name": "uma-m-1p1",
     "model_path": null,
+    "model_cache_dir": null,
     "device": "cuda",
     "huggingface_token": null,
     "huggingface_token_file": "/home/hf_secret",
-    "logging_level": "info"
+
+    "logging_level": "INFO"
   }
 }
 ```
@@ -144,12 +179,15 @@ optimization:
   batch_optimizer: fire
   max_num_conformers: 20
   conformer_seed: 42
-  model_name: uma-s-1p1
+
+  model_name: uma-m-1p1
   model_path: null
+  model_cache_dir: null
   device: cuda
   huggingface_token: null
   huggingface_token_file: /home/hf_secret
-  logging_level: info
+
+  logging_level: INFO
 ```
 
 - `batch_optimization_mode`: controls the ensemble mode

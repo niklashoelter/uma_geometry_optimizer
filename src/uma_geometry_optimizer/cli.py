@@ -42,6 +42,11 @@ from .io_handler import (
     save_xyz_file, save_multi_xyz
 )
 from .logging_utils import configure_logging
+from .api import (
+    optimize_single_smiles,
+    optimize_single_xyz_file,
+    optimize_smiles_ensemble,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -312,24 +317,33 @@ def cmd_optimize(args, config: Config):
     Raises:
         SystemExit: If optimization fails or input cannot be processed.
     """
-    from .optimizer import optimize_single_structure
-
     try:
         if args.smiles:
-            logger.info("Converting SMILES '%s' to 3D coordinates...", args.smiles)
-            structure = cast(Structure, smiles_to_xyz(args.smiles))
-            structure.comment = f"Optimized from SMILES: {args.smiles}"
+            logger.info("Converting SMILES '%s' to 3D coordinates and optimizing...", args.smiles)
+            optimized = optimize_single_smiles(
+                smiles=args.smiles,
+                output_file=args.output,
+                config=config,
+            )
         else:
-            logger.info("Reading structure from %s", args.xyz)
-            structure = read_xyz(args.xyz, charge=args.charge, multiplicity=args.multiplicity)
-            structure.comment = f"Optimized from: {args.xyz}"
+            logger.info(
+                "Reading and optimizing structure from %s (charge=%d, multiplicity=%d)",
+                args.xyz,
+                args.charge,
+                args.multiplicity,
+            )
+            optimized = optimize_single_xyz_file(
+                input_file=args.xyz,
+                output_file=args.output,
+                config=config,
+                charge=args.charge,
+                multiplicity=args.multiplicity,
+            )
 
-        logger.info("Optimizing structure with %d atoms...", structure.n_atoms)
-
-        optimized = optimize_single_structure(structure, config)
-        save_xyz_file(optimized, args.output)
-
-        logger.info("Optimization completed. Final energy: %.6f eV", optimized.energy if optimized.energy is not None else float('nan'))
+        logger.info(
+            "Optimization completed. Final energy: %.6f eV",
+            optimized.energy if optimized.energy is not None else float("nan"),
+        )
         logger.info("Optimized structure saved to %s", args.output)
 
     except Exception as e:
@@ -342,33 +356,36 @@ def cmd_ensemble(args, config: Config):
 
     This command optimizes multiple conformers of the same molecule using batch inference.
     """
-    from .optimizer import optimize_structure_batch
-
     try:
+        # Warn if user tries to specify charge or multiplicity for batch mode, which
+        # currently only supports neutral singlet systems.
+        if getattr(args, "charge", None) not in (None, 0) or getattr(args, "multiplicity", None) not in (None, 1):
+            logger.warning(
+                "Non-neutral charges or spin multiplicities are currently not supported "
+                "in batch ensemble optimization; falling back to neutral singlet "
+                "(charge=0, multiplicity=1)."
+            )
+
         # Determine number of conformers from CLI or config
         num_conf = args.conformers or config.optimization.max_num_conformers
         logger.info("Generating %d conformers for SMILES: %s", num_conf, args.smiles)
 
-        conformers: List[Structure] = cast(List[Structure], smiles_to_ensemble(args.smiles, num_conformers=num_conf))
+        optimized_conformers = optimize_smiles_ensemble(
+            smiles=args.smiles,
+            num_conformers=num_conf,
+            output_file=args.output,
+            config=config,
+        )
 
-        if not conformers:
+        if not optimized_conformers:
             logger.error("No conformers found")
             sys.exit(1)
 
-        logger.info("Found %d conformers with %d atoms each", len(conformers), conformers[0].n_atoms)
-        logger.info("Starting ensemble optimization using Fairchem UMA model...")
-
-        # Optimize conformer ensemble using configured mode (sequential/batch)
-        optimized_conformers = optimize_structure_batch(conformers, config)
-
-        # Generate comments for output (keep conformer wording for SMILES workflows)
-        comments = [f"Optimized conformer {i+1} from SMILES: {args.smiles}" for i in range(len(optimized_conformers))]
-
-        # Save results
-        save_multi_xyz(optimized_conformers, args.output, comments)
-
-        logger.info("Ensemble optimization completed successfully!")
-        logger.info("%d optimized conformers saved to %s", len(optimized_conformers), args.output)
+        logger.info(
+            "Ensemble optimization completed successfully! %d optimized conformers saved to %s",
+            len(optimized_conformers),
+            args.output,
+        )
 
     except Exception as e:
         logger.exception("Error during ensemble optimization: %s", e)
@@ -380,12 +397,19 @@ def cmd_batch(args, config: Config):
     from .optimizer import optimize_structure_batch
 
     try:
+        if args.charge != 0 or args.multiplicity != 1:
+            logger.warning(
+                "Non-neutral charges or spin multiplicities are currently not supported "
+                "in batch optimization; falling back to neutral singlet "
+                "(charge=0, multiplicity=1)."
+            )
+
         if args.multi_xyz:
             logger.info("Reading structures from multi-XYZ file: %s", args.multi_xyz)
-            structures = read_multi_xyz(args.multi_xyz, charge=args.charge, multiplicity=args.multiplicity)
+            structures = read_multi_xyz(args.multi_xyz, charge=0, multiplicity=1)
         else:
             logger.info("Reading structures from directory: %s", args.xyz_dir)
-            structures = read_xyz_directory(args.xyz_dir, charge=args.charge, multiplicity=args.multiplicity)
+            structures = read_xyz_directory(args.xyz_dir, charge=0, multiplicity=1)
 
         if not structures:
             logger.error("No structures found")

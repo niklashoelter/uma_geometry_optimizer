@@ -11,7 +11,6 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import uma_geometry_optimizer as uma_geom_optimizer
-from uma_geometry_optimizer import Config, Structure
 from uma_geometry_optimizer.config import load_config_from_file
 
 

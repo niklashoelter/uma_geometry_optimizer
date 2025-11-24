@@ -10,6 +10,7 @@
     "model_path": null,
     "model_cache_dir": "/mnt/share/models/cache",
     "device": "cuda",
+
     "huggingface_token": null,
     "huggingface_token_file": null,
 

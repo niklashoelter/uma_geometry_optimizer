@@ -58,10 +58,11 @@ def load_model_fairchem(config: Config):
     from fairchem.core import FAIRChemCalculator, pretrained_mlip  # type: ignore
 
     opt = config.optimization
-    device = _check_device(opt.device.lower())
     _load_hf_token_to_env(config)
+    device = _check_device(opt.device.lower())
+    model_path = _verify_model_path(config)
 
-    if model_path := _verify_model_path(config):
+    if model_path:
         predictor = pretrained_mlip.load_predict_unit(
             path=model_path,
             device=_check_device(opt.device.lower()),
@@ -93,14 +94,16 @@ def load_model_torchsim(config: Config):
 
     opt = config.optimization
     force_cpu = _check_device(opt.device.lower()) == "cpu"
-    model_name, model_path = _verify_model_name_and_cache_dir(config)
+
+    model_path = _verify_model_path(config)
+    model_name, model_cache_dir = _verify_model_name_and_cache_dir(config)
     _load_hf_token_to_env(config)
 
     if model_path:
         model = FairChemModel(model=model_path, cpu=force_cpu, task_name="omol")
         return model
 
-    model = FairChemModel(model_name=model_name, cpu=force_cpu, task_name="omol")
+    model = FairChemModel(model_name=model_name, model_cache_dir=model_cache_dir, cpu=force_cpu, task_name="omol")
     return model
 
 

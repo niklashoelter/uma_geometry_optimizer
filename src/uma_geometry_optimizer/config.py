@@ -3,7 +3,7 @@
 This module provides a simple JSON/YAML-backed configuration represented as a
 nested Python dict while still exposing a Config class API. Unknown keys are
 preserved, and only a small set of known keys have defaults derived from
-examples/config.json so users can add new keys without changing the code.
+``examples/config.json`` so users can add new keys without changing the code.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Default configuration aligned with examples/config.json
+# This is the single source of truth for required/known configuration keys.
 DEFAULT_CONFIG: Dict[str, Any] = {
     "optimization": {
         "batch_optimization_mode": "batch",
@@ -27,13 +28,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "max_num_conformers": 20,
         "conformer_seed": 42,
 
-        "model_name": "uma-s-1p1",
+        "model_name": "uma-m-1p1",
         "model_path": None,
+        # Optional local model cache directory; can be overridden by user config
+        "model_cache_dir": None,
         "device": default_device,
         "huggingface_token": None,
         "huggingface_token_file": None,
 
-        # New logging level control: one of "ERROR", "WARNING", "INFO", "DEBUG"
+        # Logging level control: one of "ERROR", "WARNING", "INFO", "DEBUG"
         "logging_level": "INFO",
     }
 }
@@ -73,7 +76,9 @@ class _Section:
             if isinstance(val, dict):
                 return _Section(self._root, self._path + [name])
             return val
-        raise AttributeError(f"{name} not found in section {'.'.join(self._path) if self._path else 'root'}")
+        raise AttributeError(
+            f"{name} not found in section {'.'.join(self._path) if self._path else 'root'}"
+        )
 
     def __setattr__(self, name: str, value: Any) -> None:
         node = self._node()
@@ -102,18 +107,21 @@ class _Section:
                 content = fh.read().strip()
             return content or None
         except (OSError, IOError) as e:
-            logger.warning("Could not read HuggingFace token from %s: %s", token_file, e)
+            logger.warning(
+                "Could not read HuggingFace token from %s: %s", token_file, e
+            )
             return None
 
 
 class Config:
     """Dict-backed configuration with attribute access for sections.
 
-    Example:
-        cfg = load_config_from_file()
-        print(cfg.optimization.logging_level)
-        cfg.optimization.device = "cuda"
-        save_config_to_file(cfg, "config.json")
+    Example
+    -------
+    >>> cfg = load_config_from_file()
+    >>> print(cfg.optimization.logging_level)
+    >>> cfg.optimization.device = "cuda"
+    >>> save_config_to_file(cfg, "config.json")
     """
 
     def __init__(self, data: Optional[Dict[str, Any]] = None) -> None:
