@@ -140,7 +140,10 @@ def _optimize_batch_structures(
 
     optimizer_name = getattr(config.optimization, 'batch_optimizer', 'fire') or 'fire'
     optimizer_name = str(optimizer_name).strip().lower()
-    optimizer_fn = fire if optimizer_name == 'fire' else gradient_descent
+    if optimizer_name == 'gradient_descent':
+        optimizer = torch_sim.optimizers.Optimizer.gradient_descent
+    else:
+        optimizer = torch_sim.optimizers.Optimizer.fire
     convergence_fn = torch_sim.generate_energy_convergence_fn(energy_tol=1e-6)
 
     ase_structures = [
@@ -161,7 +164,7 @@ def _optimize_batch_structures(
     final_state = torch_sim.runners.optimize(
         system = batched_state,
         model = model,
-        optimizer = optimizer_fn,
+        optimizer = optimizer,
         convergence_fn = convergence_fn,
         autobatcher = batcher,
         steps_between_swaps = 3
