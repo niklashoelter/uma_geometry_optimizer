@@ -41,17 +41,34 @@ def _verify_model_name_and_cache_dir(config: Config) -> tuple[str, Optional[Path
 
     return model_name, model_cache_dir
 
+def _verify_model_path(config: Config) -> Path | None:
+    """Verify that model path is provided and return model name and cache directory."""
+    opt = config.optimization
+    model_path = opt.model_path
+    if model_path:
+        model_path = Path(model_path)
+        if not model_path.exists():
+            return None
+        return model_path
+    return None
+
 @time_it
 def load_model_fairchem(config: Config):
     """Load a FAIRChemCalculator using fairchem's pretrained_mlip helper."""
     from fairchem.core import FAIRChemCalculator, pretrained_mlip  # type: ignore
 
     opt = config.optimization
-
+    device = _check_device(opt.device.lower())
     _load_hf_token_to_env(config)
 
+    if model_path := _verify_model_path(config):
+        predictor = pretrained_mlip.load_predict_unit(
+            path=model_path,
+            device=_check_device(opt.device.lower()),
+        )
+        calculator = FAIRChemCalculator(predict_unit=predictor, task_name="omol")
+        return calculator
     model_name, model_dir = _verify_model_name_and_cache_dir(config)
-    device = _check_device(opt.device.lower())
 
     if model_dir:
         predictor = pretrained_mlip.get_predict_unit(
