@@ -7,7 +7,7 @@
     "conformer_seed": 42,
 
     "model_name": "uma-m-1p1",
-    "model_path": null
+    "model_path": null,
     "model_cache_dir": "/mnt/share/models/cache",
     "device": "cuda",
     "huggingface_token": null,
